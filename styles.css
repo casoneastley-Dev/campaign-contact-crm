@@ -617,12 +617,14 @@ dialog[open]::backdrop { animation: fade-in .22s ease; }
 }
 
 .dialog-body label { display: block; font-size: .8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
-/* 16px input text stops iOS auto-zoom on focus */
+/* 16px input text stops iOS auto-zoom on focus (applies to controls in or out of a label) */
+.dialog-body input:not([type="checkbox"]), .dialog-body select, .dialog-body textarea {
+  font-size: 1rem;
+  color: var(--text);
+}
 .dialog-body label input, .dialog-body label select, .dialog-body label textarea {
   margin-top: 5px;
   font-weight: 400;
-  font-size: 1rem;
-  color: var(--text);
 }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
@@ -695,6 +697,59 @@ dialog[open]::backdrop { animation: fade-in .22s ease; }
   transition: background var(--t-fast), color var(--t-fast);
 }
 .btn-link-add:hover { background: var(--primary); color: var(--primary-contrast); }
+
+/* ---------- Header actions & AI settings ---------- */
+.header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+#btn-settings.needs-setup { position: relative; }
+#btn-settings.needs-setup::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  background: var(--primary);
+  border: 2px solid var(--surface);
+}
+
+.settings-test-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+
+.ai-test-result { font-size: .8rem; font-weight: 600; word-break: break-word; }
+.ai-test-result.is-ok { color: var(--ok-text); }
+.ai-test-result.is-error { color: var(--danger); }
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0;
+}
+.checkbox-row input { width: 18px; height: 18px; accent-color: var(--primary); margin-top: 1px; flex: 0 0 auto; }
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.btn-text {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0 0;
+  width: auto;
+}
+.btn-text:hover { text-decoration: underline; }
+
+.dialog-body a { color: var(--primary); font-weight: 600; }
 
 .form-error {
   background: var(--danger-bg);

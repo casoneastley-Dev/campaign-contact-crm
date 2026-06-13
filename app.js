@@ -14,6 +14,8 @@
     connectionsOf, suggestedConnections,
   } = globalThis.CRMLib;
 
+  const AI = globalThis.CRMAI;
+
   const STORAGE_KEY = "campaign-crm:contacts:v1";
   const LIMIT_KEY = "campaign-crm:contribution-limit";
 
@@ -640,6 +642,70 @@
     toast("Contact deleted");
   }
 
+  // ---------- AI settings ----------
+
+  const settingsDialog = $("#settings-dialog");
+  const settingsForm = $("#settings-form");
+
+  // Dot on the gear when no API key is set yet.
+  function updateAiStatus() {
+    $("#btn-settings").classList.toggle("needs-setup", !AI.isConfigured());
+  }
+
+  function openSettings() {
+    const cfg = AI.getConfig();
+    $("#ai-model").innerHTML = AI.MODELS
+      .map(m => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join("");
+    settingsForm.elements.apiKey.value = cfg.apiKey;
+    settingsForm.elements.model.value = cfg.model;
+    settingsForm.elements.webSearch.checked = cfg.webSearch;
+    settingsForm.elements.protocol.value = cfg.protocol;
+    settingsForm.elements.knowledge.value = cfg.knowledge;
+    $("#ai-test-result").textContent = "";
+    $("#ai-test-result").className = "ai-test-result";
+    settingsDialog.showModal();
+  }
+
+  function saveSettings(event) {
+    event.preventDefault();
+    AI.saveConfig({
+      apiKey: settingsForm.elements.apiKey.value,
+      model: settingsForm.elements.model.value,
+      webSearch: settingsForm.elements.webSearch.checked,
+      protocol: settingsForm.elements.protocol.value,
+      knowledge: settingsForm.elements.knowledge.value,
+    });
+    settingsDialog.close();
+    updateAiStatus();
+    toast("AI settings saved");
+  }
+
+  async function testAiConnection() {
+    const btn = $("#btn-ai-test");
+    const out = $("#ai-test-result");
+    // Use the key currently typed in the field, saving it first so the call sees it.
+    AI.saveConfig({ apiKey: settingsForm.elements.apiKey.value });
+    if (!settingsForm.elements.apiKey.value.trim()) {
+      out.textContent = "Enter an API key first.";
+      out.className = "ai-test-result is-error";
+      return;
+    }
+    btn.disabled = true;
+    out.textContent = "Testing…";
+    out.className = "ai-test-result";
+    try {
+      AI.saveConfig({ model: settingsForm.elements.model.value });
+      const r = await AI.testConnection();
+      out.textContent = `✓ Connected — ${r.model}`;
+      out.className = "ai-test-result is-ok";
+    } catch (err) {
+      out.textContent = `✗ ${err.message}`;
+      out.className = "ai-test-result is-error";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   // ---------- Export / import ----------
 
   function timestamp() {
@@ -819,6 +885,17 @@
     $("#log-type-select").addEventListener("change", e => {
       $("#log-amount-label").hidden = e.target.value !== "donation";
     });
+
+    // AI settings
+    $("#btn-settings").addEventListener("click", openSettings);
+    settingsForm.addEventListener("submit", saveSettings);
+    $("#btn-settings-cancel").addEventListener("click", () => settingsDialog.close());
+    $("#btn-settings-close").addEventListener("click", () => settingsDialog.close());
+    $("#btn-ai-test").addEventListener("click", testAiConnection);
+    $("#btn-ai-reset-protocol").addEventListener("click", () => {
+      settingsForm.elements.protocol.value = AI.DEFAULT_PROTOCOL;
+    });
+    updateAiStatus();
 
     $("#btn-export-csv").addEventListener("click", exportCsv);
     $("#btn-export-json").addEventListener("click", exportJson);

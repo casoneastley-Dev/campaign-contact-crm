@@ -18,9 +18,14 @@
         <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 12c4.42 0 8 2.24 8 5v3H4v-3c0-2.76 3.58-5 8-5Z"/></svg>
         Campaign Contacts
       </h1>
-      <button id="btn-add" class="btn btn-primary" type="button">
-        <span aria-hidden="true">+</span> Add contact
-      </button>
+      <div class="header-actions">
+        <button id="btn-settings" class="icon-btn" type="button" aria-label="AI settings" title="AI settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.74 8.8a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94 0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.24.42.32.61.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.5.42h3.84c.25 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.1.48.02.61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+        </button>
+        <button id="btn-add" class="btn btn-primary" type="button">
+          <span aria-hidden="true">+</span> Add contact
+        </button>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -205,9 +210,77 @@
     </form>
   </dialog>
 
+  <!-- AI settings dialog -->
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form" method="dialog" novalidate>
+      <header class="dialog-header">
+        <h2 id="settings-title">AI settings</h2>
+        <button type="button" class="btn-close" id="btn-settings-close" aria-label="Close">&times;</button>
+      </header>
+
+      <div class="dialog-body">
+        <p class="field-hint">
+          The AI features call Claude directly from this browser using your own
+          Anthropic API key. The key is stored only on this device and never sent
+          anywhere except Anthropic.
+        </p>
+
+        <fieldset>
+          <legend>Connection</legend>
+          <label>Anthropic API key
+            <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-..." spellcheck="false">
+          </label>
+          <p class="field-hint">
+            Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
+          </p>
+          <div class="settings-test-row">
+            <button type="button" class="btn btn-ghost" id="btn-ai-test">Test connection</button>
+            <span id="ai-test-result" class="ai-test-result"></span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Model &amp; research</legend>
+          <label>Model
+            <select name="model" id="ai-model"></select>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="webSearch" id="ai-websearch">
+            <span>Let Claude search the web for current information (recommended)</span>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>AI protocol — the "memory file"</legend>
+          <p class="field-hint">
+            The operating manual sent to Claude on every request: how to research,
+            fact-check, play devil's advocate, and stay in bounds. Edit to tune its behavior.
+          </p>
+          <textarea name="protocol" id="ai-protocol" rows="12" spellcheck="false" class="mono"></textarea>
+          <button type="button" class="btn-text" id="btn-ai-reset-protocol">Reset to default</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Campaign &amp; district knowledge base</legend>
+          <p class="field-hint">
+            Facts about this race, district, candidate, and opponents. Treated as
+            ground truth. The more you add, the sharper the analysis.
+          </p>
+          <textarea name="knowledge" id="ai-knowledge" rows="6" placeholder="e.g. District: FL-15. Incumbent: … Primary date: … Key issues: … Opponent: …"></textarea>
+        </fieldset>
+      </div>
+
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" id="btn-settings-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btn-settings-save">Save settings</button>
+      </footer>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="lib.js"></script>
+  <script src="ai.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
