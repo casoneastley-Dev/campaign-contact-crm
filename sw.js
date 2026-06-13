@@ -1,6 +1,6 @@
 /* Service worker: precache the app shell so the CRM works offline.
    Bump CACHE_VERSION whenever any shell file changes. */
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const CACHE_NAME = `campaign-crm-${CACHE_VERSION}`;
 
 const SHELL = [
