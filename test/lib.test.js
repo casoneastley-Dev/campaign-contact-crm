@@ -11,6 +11,7 @@ const {
   normalizeContact, csvCell, contactsToCsv,
   donationTotal, formatMoney, lastInteractionDate, followUpStatus,
   findDuplicates, campaignStats,
+  connectionsOf, sharedAffiliations, suggestedConnections, bestPath,
 } = require("../lib.js");
 
 function makeContact(overrides = {}) {
@@ -307,5 +308,67 @@ describe("schema constants", () => {
   test("README's eleven campaign attributes are all present", () => {
     assert.equal(TAGS.length, 11);
     assert.ok(TAGS.some(t => t.id === "do-not-contact"));
+  });
+});
+
+describe("relationships", () => {
+  // a links b; d links b; c shares org+tag with a but is unlinked; c is isolated.
+  function net() {
+    return [
+      makeContact({ id: "a", firstName: "A", organization: "Acme", city: "Riverside", tags: ["donor"], connections: ["b"] }),
+      makeContact({ id: "b", firstName: "B", organization: "Beta", city: "Riverside", tags: ["volunteer"], connections: [] }),
+      makeContact({ id: "c", firstName: "C", organization: "Acme", city: "LA", tags: ["donor"], connections: [] }),
+      makeContact({ id: "d", firstName: "D", organization: "Delta", city: "NYC", tags: [], connections: ["b"] }),
+    ];
+  }
+
+  test("normalizeContact stores connections and drops self-links and dupes", () => {
+    const c = normalizeContact({ id: "x", firstName: "X", connections: ["x", "y", "y", 7, ""] });
+    assert.deepEqual(c.connections, ["y"]);
+    assert.deepEqual(normalizeContact({ firstName: "Z" }).connections, []); // v1/v2 default
+  });
+
+  test("connectionsOf resolves links bidirectionally", () => {
+    const list = net();
+    const b = list.find(c => c.id === "b");
+    // a lists b and d lists b, even though b lists neither
+    assert.deepEqual(connectionsOf(list, b).map(c => c.id).sort(), ["a", "d"]);
+    assert.deepEqual(connectionsOf(list, list.find(c => c.id === "a")).map(c => c.id), ["b"]);
+  });
+
+  test("connectionsOf drops dangling ids from deleted contacts", () => {
+    const list = [makeContact({ id: "a", firstName: "A", connections: ["ghost"] })];
+    assert.deepEqual(connectionsOf(list, list[0]), []);
+  });
+
+  test("sharedAffiliations reports org and tag overlaps, org first", () => {
+    const list = net();
+    const reasons = sharedAffiliations(list.find(c => c.id === "a"), list.find(c => c.id === "c"));
+    assert.deepEqual(reasons.map(r => r.type), ["organization", "tag"]);
+    assert.equal(reasons[0].label, "Acme");
+  });
+
+  test("suggestedConnections ranks by signal and skips already-linked", () => {
+    const list = net();
+    const suggestions = suggestedConnections(list, list.find(c => c.id === "a"));
+    assert.equal(suggestions[0].contact.id, "c");           // shares org+tag
+    assert.ok(suggestions.every(s => s.contact.id !== "b")); // b already linked
+  });
+
+  test("suggestedConnections excludes do-not-contact", () => {
+    const list = [
+      makeContact({ id: "a", firstName: "A", organization: "Acme" }),
+      makeContact({ id: "x", firstName: "X", organization: "Acme", tags: ["do-not-contact"] }),
+    ];
+    assert.equal(suggestedConnections(list, list[0]).length, 0);
+  });
+
+  test("bestPath finds the shortest introduction chain", () => {
+    assert.deepEqual(bestPath(net(), "a", "d").map(c => c.id), ["a", "b", "d"]);
+  });
+
+  test("bestPath returns null when there is no chain", () => {
+    assert.equal(bestPath(net(), "a", "c"), null); // c is isolated
+    assert.equal(bestPath(net(), "a", "a"), null); // same contact
   });
 });

@@ -4,7 +4,7 @@
 (() => {
   "use strict";
 
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
 
   const TAGS = [
     { id: "donor",                 label: "Donor" },
@@ -170,6 +170,12 @@
       ? raw.interactions.map(normalizeInteraction).filter(Boolean) : [];
     c.donations = Array.isArray(raw.donations)
       ? raw.donations.map(normalizeDonation).filter(Boolean) : [];
+    // Contact-to-contact links (1st-degree connections). Stored as ids; the
+    // referenced contact may not exist yet, so dangling ids are pruned at read
+    // time by connectionsOf rather than here. Self-links are dropped.
+    c.connections = Array.isArray(raw.connections)
+      ? [...new Set(raw.connections.filter(id => typeof id === "string" && id && id !== c.id))]
+      : [];
     c.createdAt = isIsoDate(raw.createdAt) ? raw.createdAt : new Date().toISOString();
     c.updatedAt = isIsoDate(raw.updatedAt) ? raw.updatedAt : c.createdAt;
     if (!displayName(c)) return null; // must have some identity
@@ -231,6 +237,95 @@
     return { total: contacts.length, raised, donors, endorsed, volunteers, dueFollowUps };
   }
 
+  // ---------- Relationships (free, no AI) ----------
+
+  function connectionIds(contact) {
+    return Array.isArray(contact.connections) ? contact.connections : [];
+  }
+
+  /** Resolve a contact's 1st-degree links as contact objects. Treats links as
+      bidirectional: includes anyone this contact lists, or who lists this
+      contact. Dangling ids (deleted contacts) are dropped. */
+  function connectionsOf(contacts, contact) {
+    const byId = new Map(contacts.map(c => [c.id, c]));
+    const ids = new Set(connectionIds(contact).filter(id => byId.has(id)));
+    for (const other of contacts) {
+      if (other.id !== contact.id && connectionIds(other).includes(contact.id)) {
+        ids.add(other.id);
+      }
+    }
+    ids.delete(contact.id);
+    return [...ids].map(id => byId.get(id)).filter(Boolean);
+  }
+
+  /** Why two contacts plausibly know each other: shared org / tag / city.
+      Returns [{type, label}], strongest signal (organization) first. */
+  function sharedAffiliations(a, b) {
+    const reasons = [];
+    const orgA = a.organization.trim().toLowerCase();
+    if (orgA && b.organization.trim().toLowerCase() === orgA) {
+      reasons.push({ type: "organization", label: a.organization.trim() });
+    }
+    for (const t of a.tags) {
+      if (b.tags.includes(t)) reasons.push({ type: "tag", label: TAG_LABELS[t] || t });
+    }
+    const cityA = a.city.trim().toLowerCase();
+    if (cityA && b.city.trim().toLowerCase() === cityA) {
+      reasons.push({ type: "city", label: a.city.trim() });
+    }
+    return reasons;
+  }
+
+  const AFFINITY_WEIGHTS = { organization: 3, tag: 2, city: 1 };
+
+  /** Contacts not already linked to `contact` that share an affiliation,
+      ranked by signal strength. Returns [{contact, reasons, score}]. */
+  function suggestedConnections(contacts, contact, limit = 5) {
+    const linked = new Set(connectionsOf(contacts, contact).map(c => c.id));
+    const out = [];
+    for (const other of contacts) {
+      if (other.id === contact.id || linked.has(other.id)) continue;
+      if (other.tags.includes("do-not-contact")) continue;
+      const reasons = sharedAffiliations(contact, other);
+      if (!reasons.length) continue;
+      const score = reasons.reduce((s, r) => s + (AFFINITY_WEIGHTS[r.type] || 1), 0);
+      out.push({ contact: other, reasons, score });
+    }
+    out.sort((a, b) => b.score - a.score || displayName(a.contact).localeCompare(displayName(b.contact)));
+    return out.slice(0, limit);
+  }
+
+  /** Shortest introduction chain between two contacts over the link graph,
+      as an array of contacts [from, ...intermediaries, to], or null if there's
+      no path. This is the "who's my best path to X" finder. */
+  function bestPath(contacts, fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return null;
+    const byId = new Map(contacts.map(c => [c.id, c]));
+    if (!byId.has(fromId) || !byId.has(toId)) return null;
+
+    const adj = new Map();
+    const link = (a, b) => { (adj.get(a) || adj.set(a, new Set()).get(a)).add(b); };
+    for (const c of contacts) {
+      for (const id of connectionIds(c)) {
+        if (byId.has(id)) { link(c.id, id); link(id, c.id); }
+      }
+    }
+
+    const prev = new Map([[fromId, null]]);
+    const queue = [fromId];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur === toId) break;
+      for (const nb of (adj.get(cur) || [])) {
+        if (!prev.has(nb)) { prev.set(nb, cur); queue.push(nb); }
+      }
+    }
+    if (!prev.has(toId)) return null;
+    const path = [];
+    for (let at = toId; at !== null; at = prev.get(at)) path.unshift(byId.get(at));
+    return path;
+  }
+
   // ---------- CSV ----------
 
   /** Quote a CSV cell; prefix formula-leading chars to block spreadsheet injection. */
@@ -247,7 +342,7 @@
     "street", "city", "state", "postalCode", "country",
     "tags", "donationStatus", "endorsementStatus", "priority", "followUpDate",
     "totalDonated", "donationCount", "lastInteraction", "interactionCount",
-    "notes", "createdAt", "updatedAt",
+    "connectionCount", "notes", "createdAt", "updatedAt",
   ];
 
   function csvValue(c, col) {
@@ -257,6 +352,7 @@
       case "donationCount": return c.donations.length || "";
       case "lastInteraction": return lastInteractionDate(c) || "";
       case "interactionCount": return c.interactions.length || "";
+      case "connectionCount": return (Array.isArray(c.connections) ? c.connections.length : 0) || "";
       default: return c[col];
     }
   }
@@ -279,6 +375,7 @@
     isIsoDate, makeId, normalizeContact, normalizeInteraction, normalizeDonation,
     donationTotal, formatMoney, lastInteractionDate, followUpStatus,
     findDuplicates, campaignStats,
+    connectionsOf, sharedAffiliations, suggestedConnections, bestPath,
     csvCell, contactsToCsv,
   };
 

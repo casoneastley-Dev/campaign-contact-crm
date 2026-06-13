@@ -11,6 +11,7 @@
     telHref, waHref, tgHref, webHref, makeId, normalizeContact,
     donationTotal, formatMoney, lastInteractionDate, followUpStatus,
     findDuplicates, campaignStats, contactsToCsv,
+    connectionsOf, suggestedConnections,
   } = globalThis.CRMLib;
 
   const STORAGE_KEY = "campaign-crm:contacts:v1";
@@ -19,11 +20,11 @@
   // ---------- Storage ----------
 
   const SAMPLE_CONTACTS = [
-    { id:"sample-001", firstName:"Maria", lastName:"Lopez", organization:"Lopez Family Dental", role:"Owner", email:"maria.lopez@example.com", phone:"+1 555 010 2030", website:"lopezfamilydental.example.com", whatsapp:"+1 555 010 2030", telegram:"", street:"412 Birch Ave", city:"Riverside", state:"CA", postalCode:"92501", country:"USA", notes:"Max-out donor last cycle. Prefers email. Hosts an annual backyard fundraiser in September.", tags:["donor","business-networking"], donationStatus:"recurring", endorsementStatus:"none", priority:"high", followUpDate:"2026-06-25", interactions:[{id:"i-001a",type:"call",date:"2026-05-28",note:"Confirmed September fundraiser date; wants the candidate for 2 hours."},{id:"i-001b",type:"meeting",date:"2026-03-14",note:"Coffee at her office. Interested in small-business tax platform."}], donations:[{id:"d-001a",amount:1000,date:"2026-02-01",note:"Initial contribution"},{id:"d-001b",amount:1000,date:"2026-04-01",note:""},{id:"d-001c",amount:1500,date:"2026-06-01",note:"Maxed out for the primary"}], createdAt:"2026-01-12T18:30:00.000Z", updatedAt:"2026-06-01T16:05:00.000Z" },
-    { id:"sample-002", firstName:"Devon", lastName:"Carter", organization:"Campaign HQ", role:"Campaign manager", email:"devon@example.org", phone:"555-010-4111", website:"", whatsapp:"+1 555 010 4111", telegram:"@devoncarter", street:"88 Main St, Suite 2", city:"Riverside", state:"CA", postalCode:"92501", country:"USA", notes:"Full-time staff. Primary point of contact for scheduling and press requests.", tags:["staff"], donationStatus:"none", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[], donations:[], createdAt:"2026-01-05T09:00:00.000Z", updatedAt:"2026-06-01T11:20:00.000Z" },
+    { id:"sample-001", firstName:"Maria", lastName:"Lopez", organization:"Lopez Family Dental", role:"Owner", email:"maria.lopez@example.com", phone:"+1 555 010 2030", website:"lopezfamilydental.example.com", whatsapp:"+1 555 010 2030", telegram:"", street:"412 Birch Ave", city:"Riverside", state:"CA", postalCode:"92501", country:"USA", notes:"Max-out donor last cycle. Prefers email. Hosts an annual backyard fundraiser in September.", tags:["donor","business-networking"], donationStatus:"recurring", endorsementStatus:"none", priority:"high", followUpDate:"2026-06-25", interactions:[{id:"i-001a",type:"call",date:"2026-05-28",note:"Confirmed September fundraiser date; wants the candidate for 2 hours."},{id:"i-001b",type:"meeting",date:"2026-03-14",note:"Coffee at her office. Interested in small-business tax platform."}], donations:[{id:"d-001a",amount:1000,date:"2026-02-01",note:"Initial contribution"},{id:"d-001b",amount:1000,date:"2026-04-01",note:""},{id:"d-001c",amount:1500,date:"2026-06-01",note:"Maxed out for the primary"}], connections:["sample-004"], createdAt:"2026-01-12T18:30:00.000Z", updatedAt:"2026-06-01T16:05:00.000Z" },
+    { id:"sample-002", firstName:"Devon", lastName:"Carter", organization:"Campaign HQ", role:"Campaign manager", email:"devon@example.org", phone:"555-010-4111", website:"", whatsapp:"+1 555 010 4111", telegram:"@devoncarter", street:"88 Main St, Suite 2", city:"Riverside", state:"CA", postalCode:"92501", country:"USA", notes:"Full-time staff. Primary point of contact for scheduling and press requests.", tags:["staff"], donationStatus:"none", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[], donations:[], connections:["sample-001","sample-003","sample-007","sample-008"], createdAt:"2026-01-05T09:00:00.000Z", updatedAt:"2026-06-01T11:20:00.000Z" },
     { id:"sample-003", firstName:"Gloria", lastName:"Nakamura", organization:"County Democratic Committee", role:"County chair", email:"gnakamura@example.org", phone:"555-010-7788", website:"countydems.example.org", whatsapp:"", telegram:"", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Key gatekeeper for the county party endorsement process. Monthly committee meetings, first Tuesday.", tags:["political-networking","potential-endorsement"], donationStatus:"none", endorsementStatus:"asked", priority:"high", followUpDate:"2026-06-05", interactions:[{id:"i-003a",type:"meeting",date:"2026-05-05",note:"Presented at the committee meeting. She wants follow-up before the June endorsement vote."},{id:"i-003b",type:"email",date:"2026-04-12",note:"Sent endorsement questionnaire."}], donations:[], createdAt:"2026-02-02T20:15:00.000Z", updatedAt:"2026-05-14T19:45:00.000Z" },
     { id:"sample-004", firstName:"Priya", lastName:"Raman", organization:"Riverside Chamber of Commerce", role:"President", email:"praman@example.com", phone:"555-010-3344", website:"riversidechamber.example.com", whatsapp:"", telegram:"", street:"200 Commerce Plaza", city:"Riverside", state:"CA", postalCode:"92502", country:"USA", notes:"Invited candidate to speak at the quarterly business breakfast. Wants to hear small-business platform first.", tags:["business-networking"], donationStatus:"asked", endorsementStatus:"potential", priority:"high", followUpDate:"2026-06-11", interactions:[{id:"i-004a",type:"call",date:"2026-05-30",note:"Discussed breakfast agenda. Decide on speaking slot by June 11."}], donations:[], createdAt:"2026-02-20T17:00:00.000Z", updatedAt:"2026-05-30T15:30:00.000Z" },
-    { id:"sample-005", firstName:"Ray", lastName:"Whitfield", organization:"Ironworkers Local 229", role:"President", email:"rwhitfield@example.org", phone:"555-010-9090", website:"local229.example.org", whatsapp:"", telegram:"", street:"75 Foundry Rd", city:"Riverside", state:"CA", postalCode:"92503", country:"USA", notes:"Endorsed in April. Local can provide volunteers for the GOTV weekend and a quote for mailers.", tags:["endorser","political-networking"], donationStatus:"donated", endorsementStatus:"endorsed", priority:"normal", followUpDate:"2026-08-01", interactions:[{id:"i-005a",type:"event",date:"2026-04-18",note:"Endorsement announcement at the union hall. Great turnout."},{id:"i-005b",type:"call",date:"2026-03-22",note:"Walked through the labor platform ahead of the executive board vote."}], donations:[{id:"d-005a",amount:1000,date:"2026-04-20",note:"PAC contribution after endorsement"}], createdAt:"2026-03-01T14:00:00.000Z", updatedAt:"2026-04-20T13:10:00.000Z" },
+    { id:"sample-005", firstName:"Ray", lastName:"Whitfield", organization:"Ironworkers Local 229", role:"President", email:"rwhitfield@example.org", phone:"555-010-9090", website:"local229.example.org", whatsapp:"", telegram:"", street:"75 Foundry Rd", city:"Riverside", state:"CA", postalCode:"92503", country:"USA", notes:"Endorsed in April. Local can provide volunteers for the GOTV weekend and a quote for mailers.", tags:["endorser","political-networking"], donationStatus:"donated", endorsementStatus:"endorsed", priority:"normal", followUpDate:"2026-08-01", interactions:[{id:"i-005a",type:"event",date:"2026-04-18",note:"Endorsement announcement at the union hall. Great turnout."},{id:"i-005b",type:"call",date:"2026-03-22",note:"Walked through the labor platform ahead of the executive board vote."}], donations:[{id:"d-005a",amount:1000,date:"2026-04-20",note:"PAC contribution after endorsement"}], connections:["sample-003"], createdAt:"2026-03-01T14:00:00.000Z", updatedAt:"2026-04-20T13:10:00.000Z" },
     { id:"sample-006", firstName:"Hannah", lastName:"Beck", organization:"Riverside Teachers Association", role:"Political director", email:"hbeck@example.org", phone:"555-010-6262", website:"", whatsapp:"", telegram:"@hannahbeck", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Endorsement questionnaire submitted 5/20. Interview scheduled for late June. Education plan is the deciding issue.", tags:["potential-endorsement","political-networking"], donationStatus:"none", endorsementStatus:"asked", priority:"normal", followUpDate:"2026-06-24", interactions:[{id:"i-006a",type:"email",date:"2026-05-20",note:"Submitted questionnaire. Interview tentatively June 24."}], donations:[], createdAt:"2026-03-15T16:45:00.000Z", updatedAt:"2026-05-20T18:00:00.000Z" },
     { id:"sample-007", firstName:"Marcus", lastName:"Okafor", organization:"", role:"Canvassing team lead", email:"marcus.okafor@example.com", phone:"555-010-8123", website:"", whatsapp:"+1 555 010 8123", telegram:"", street:"19 Elm Ct", city:"Riverside", state:"CA", postalCode:"92504", country:"USA", notes:"Star volunteer — led 14 canvass shifts. Available weekends. Also donates monthly at a small-dollar level.", tags:["volunteer","donor"], donationStatus:"recurring", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-007a",type:"event",date:"2026-06-07",note:"Led Saturday canvass — 212 doors knocked."},{id:"i-007b",type:"text",date:"2026-05-31",note:"Confirmed weekend availability through June."}], donations:[{id:"d-007a",amount:25,date:"2026-04-15",note:"Monthly"},{id:"d-007b",amount:25,date:"2026-05-15",note:"Monthly"},{id:"d-007c",amount:25,date:"2026-06-05",note:"Monthly"}], createdAt:"2026-02-08T19:30:00.000Z", updatedAt:"2026-06-07T21:00:00.000Z" },
     { id:"sample-008", firstName:"Elena", lastName:"Vasquez", organization:"Riverside Tribune", role:"Political reporter", email:"evasquez@example.com", phone:"555-010-5577", website:"tribune.example.com", whatsapp:"", telegram:"@evasquez_trib", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Covers the city council race. Fair coverage so far. Deadline is 4pm for next-day print. Route press releases through Devon.", tags:["media"], donationStatus:"none", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-008a",type:"call",date:"2026-05-30",note:"Background interview on housing policy piece running next week."}], donations:[], createdAt:"2026-01-28T22:10:00.000Z", updatedAt:"2026-05-30T20:25:00.000Z" },
@@ -61,6 +62,7 @@
   let sortBy = "name";
   let editingId = null;        // null = adding
   let loggingId = null;        // contact id the log dialog targets
+  let editingConnections = []; // connection ids staged while the dialog is open
 
   function saveContacts() {
     try {
@@ -315,7 +317,10 @@
       })),
     ].sort((a, b) => b.date.localeCompare(a.date));
 
-    if (!addressParts.length && !c.notes && !history.length) return "";
+    const linked = connectionsOf(contacts, c);
+    const suggestions = suggestedConnections(contacts, c, 3);
+
+    if (!addressParts.length && !c.notes && !history.length && !linked.length && !suggestions.length) return "";
 
     let body = "";
     if (history.length) {
@@ -333,6 +338,23 @@
     }
     if (c.notes) {
       body += `<p class="label">Notes</p><p>${escapeHtml(c.notes)}</p>`;
+    }
+    if (linked.length) {
+      body += `<p class="label">Connected to (${linked.length})</p><div class="connection-list">` +
+        linked.map(o => `<span class="connection-chip is-static">${escapeHtml(displayName(o))}</span>`).join("") +
+        "</div>";
+    }
+    if (suggestions.length) {
+      body += `<p class="label">Suggested connections</p><div class="suggestion-list">` +
+        suggestions.map(s => {
+          const why = s.reasons.map(r => escapeHtml(r.label)).join(", ");
+          return `<div class="suggestion">
+            <span class="suggestion-name">${escapeHtml(displayName(s.contact))}</span>
+            <span class="suggestion-why">shares ${why}</span>
+            <button type="button" class="btn-link-add" data-action="link" data-target="${escapeHtml(s.contact.id)}">+ Link</button>
+          </div>`;
+        }).join("") +
+        "</div>";
     }
 
     const summary = history.length ? `Details · ${history.length} activit${history.length === 1 ? "y" : "ies"}` : "Details";
@@ -385,8 +407,45 @@
       ENDORSEMENT_STATUSES.filter(s => s.id !== "none").map(s => `<option value="${s.id}">${escapeHtml(s.label)}</option>`).join(""));
   }
 
+  // Render the staged connection chips + repopulate the "add" dropdown with
+  // every other contact not already linked.
+  function renderConnectionEditor() {
+    const byId = new Map(contacts.map(c => [c.id, c]));
+    const chipsWrap = $("#connection-chips");
+    chipsWrap.innerHTML = editingConnections.map(id => {
+      const c = byId.get(id);
+      if (!c) return "";
+      return `<span class="connection-chip">${escapeHtml(displayName(c))}` +
+        `<button type="button" class="connection-remove" data-remove="${escapeHtml(id)}" aria-label="Remove ${escapeHtml(displayName(c))}">×</button></span>`;
+    }).join("") || '<span class="field-hint">No connections yet.</span>';
+
+    const linked = new Set(editingConnections);
+    const options = contacts
+      .filter(c => c.id !== editingId && !linked.has(c.id))
+      .sort((a, b) => displayName(a).localeCompare(displayName(b)))
+      .map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(displayName(c))}${c.organization ? " — " + escapeHtml(c.organization) : ""}</option>`)
+      .join("");
+    $("#connection-add").innerHTML = '<option value="">Select a contact…</option>' + options;
+  }
+
+  /** Make the connection graph symmetric: contact `id` should be linked to
+      exactly `ids`, and each of those should list `id` back (and only those). */
+  function syncConnections(id, ids) {
+    const target = new Set(ids);
+    for (const c of contacts) {
+      if (c.id === id) { c.connections = [...target]; continue; }
+      const has = (c.connections || []).includes(id);
+      if (target.has(c.id) && !has) {
+        c.connections = [...(c.connections || []), id];
+      } else if (!target.has(c.id) && has) {
+        c.connections = c.connections.filter(x => x !== id);
+      }
+    }
+  }
+
   function openDialog(contact) {
     editingId = contact ? contact.id : null;
+    editingConnections = contact ? connectionsOf(contacts, contact).map(c => c.id) : [];
     $("#dialog-title").textContent = contact ? "Edit contact" : "Add contact";
     $("#btn-save").textContent = contact ? "Save changes" : "Save contact";
     hideFormError();
@@ -405,6 +464,7 @@
         cb.checked = contact.tags.includes(cb.value);
       }
     }
+    renderConnectionEditor();
     dialog.showModal();
     form.elements.firstName.focus();
   }
@@ -459,6 +519,7 @@
 
     const now = new Date().toISOString();
     const wasEditing = !!editingId;
+    const id = wasEditing ? editingId : makeId();
     if (wasEditing) {
       const idx = contacts.findIndex(c => c.id === editingId);
       if (idx !== -1) {
@@ -466,11 +527,13 @@
       }
     } else {
       contacts.push({
-        id: makeId(), ...data,
-        interactions: [], donations: [],
+        id, ...data,
+        interactions: [], donations: [], connections: [],
         createdAt: now, updatedAt: now,
       });
     }
+    // Write the staged links symmetrically across both contacts.
+    syncConnections(id, editingConnections);
     if (saveContacts()) {
       dialog.close(); // 'close' handler resets editingId
       render();
@@ -548,6 +611,12 @@
     if (!c) return;
     if (!confirm(`Delete ${displayName(c)}? This cannot be undone.`)) return;
     contacts = contacts.filter(x => x.id !== id);
+    // Drop the deleted id from everyone else's connection lists.
+    for (const other of contacts) {
+      if (other.connections && other.connections.includes(id)) {
+        other.connections = other.connections.filter(x => x !== id);
+      }
+    }
     saveContacts();
     render();
     toast("Contact deleted");
@@ -690,12 +759,40 @@
       if (btn.dataset.action === "edit") openDialog(c);
       else if (btn.dataset.action === "log") openLogDialog(c);
       else if (btn.dataset.action === "delete") handleDelete(id);
+      else if (btn.dataset.action === "link") {
+        const targetId = btn.dataset.target;
+        const target = contacts.find(x => x.id === targetId);
+        if (!target) return;
+        const ids = connectionsOf(contacts, c).map(x => x.id);
+        if (!ids.includes(targetId)) ids.push(targetId);
+        syncConnections(id, ids);
+        c.updatedAt = new Date().toISOString();
+        saveContacts();
+        render();
+        toast(`Linked ${displayName(c)} ↔ ${displayName(target)}`);
+      }
     });
 
     form.addEventListener("submit", handleSave);
     $("#btn-cancel").addEventListener("click", () => dialog.close());
     $("#btn-dialog-close").addEventListener("click", () => dialog.close());
-    dialog.addEventListener("close", () => { editingId = null; });
+    dialog.addEventListener("close", () => { editingId = null; editingConnections = []; });
+
+    // Connections editor: dropdown adds a chip; the chip's × removes it.
+    $("#connection-add").addEventListener("change", e => {
+      const id = e.target.value;
+      if (id && !editingConnections.includes(id)) {
+        editingConnections.push(id);
+        renderConnectionEditor();
+      }
+      e.target.value = "";
+    });
+    $("#connection-chips").addEventListener("click", e => {
+      const btn = e.target.closest("[data-remove]");
+      if (!btn) return;
+      editingConnections = editingConnections.filter(x => x !== btn.dataset.remove);
+      renderConnectionEditor();
+    });
 
     logForm.addEventListener("submit", handleLogSave);
     $("#btn-log-cancel").addEventListener("click", () => logDialog.close());
