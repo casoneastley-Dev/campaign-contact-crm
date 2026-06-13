@@ -1,0 +1,16 @@
+{
+  "name": "campaign-contact-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lightweight campaign contact manager prototype (vanilla JS, no build step).",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0"
+  }
+}

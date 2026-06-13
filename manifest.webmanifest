@@ -1,0 +1,24 @@
+{
+  "name": "Campaign Contact CRM",
+  "short_name": "Contacts",
+  "description": "Lightweight campaign contact manager. Data stays on your device.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0f1420",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

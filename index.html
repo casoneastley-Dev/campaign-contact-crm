@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Lightweight campaign contact manager. Data stays on your device.">
+  <meta name="theme-color" content="#1d4ed8">
+  <title>Campaign Contact CRM</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-row">
+      <h1 class="app-title">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 12c4.42 0 8 2.24 8 5v3H4v-3c0-2.76 3.58-5 8-5Z"/></svg>
+        Campaign Contacts
+      </h1>
+      <button id="btn-add" class="btn btn-primary" type="button">
+        <span aria-hidden="true">+</span> Add contact
+      </button>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14Z"/></svg>
+        <input id="search" type="search" placeholder="Search name, org, email, phone, notes…"
+               aria-label="Search contacts" autocomplete="off">
+      </div>
+      <div class="filter-row">
+        <select id="filter-donation" aria-label="Filter by donation status">
+          <option value="">Donation: any</option>
+        </select>
+        <select id="filter-endorsement" aria-label="Filter by endorsement status">
+          <option value="">Endorsement: any</option>
+        </select>
+        <select id="filter-followup" aria-label="Filter by follow-up">
+          <option value="">Follow-up: any</option>
+          <option value="due">Due or overdue</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due today</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="none">No follow-up set</option>
+        </select>
+        <select id="sort" aria-label="Sort contacts">
+          <option value="name">Sort: Name A–Z</option>
+          <option value="priority">Sort: Priority</option>
+          <option value="followup">Sort: Follow-up date</option>
+          <option value="raised">Sort: Top donors</option>
+          <option value="updated">Sort: Recently updated</option>
+          <option value="created">Sort: Recently added</option>
+        </select>
+      </div>
+      <div id="tag-chips" class="chips" role="toolbar" aria-label="Filter by attribute"></div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="dashboard" class="dashboard" aria-label="Campaign overview"></section>
+    <p id="result-count" class="result-count" role="status"></p>
+    <ul id="contact-list" class="contact-list"></ul>
+
+    <div id="empty-state" class="empty-state" hidden>
+      <svg viewBox="0 0 24 24" class="empty-icon" aria-hidden="true"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5Zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z"/></svg>
+      <h2 id="empty-title">No contacts yet</h2>
+      <p id="empty-text">Add your first campaign contact to get started.</p>
+      <button id="btn-empty-action" class="btn btn-primary" type="button">Add contact</button>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span id="footer-count" class="footer-count"></span>
+    <div class="footer-actions">
+      <button id="btn-export-csv" class="btn btn-ghost" type="button">Export CSV</button>
+      <button id="btn-export-json" class="btn btn-ghost" type="button">Export JSON</button>
+      <button id="btn-import" class="btn btn-ghost" type="button">Import JSON</button>
+      <input id="import-file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </footer>
+
+  <!-- Add / Edit dialog -->
+  <dialog id="contact-dialog" aria-labelledby="dialog-title">
+    <form id="contact-form" method="dialog" novalidate>
+      <header class="dialog-header">
+        <h2 id="dialog-title">Add contact</h2>
+        <button type="button" class="btn-close" id="btn-dialog-close" aria-label="Close">&times;</button>
+      </header>
+
+      <div class="dialog-body">
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+
+        <fieldset>
+          <legend>Identity</legend>
+          <div class="grid-2">
+            <label>First name <input name="firstName" autocomplete="off" maxlength="80"></label>
+            <label>Last name <input name="lastName" autocomplete="off" maxlength="80"></label>
+            <label>Organization <input name="organization" autocomplete="off" maxlength="120"></label>
+            <label>Role / title <input name="role" autocomplete="off" maxlength="120"></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Contact channels</legend>
+          <div class="grid-2">
+            <label>Email <input name="email" type="email" inputmode="email" maxlength="254"></label>
+            <label>Phone <input name="phone" type="tel" inputmode="tel" maxlength="30"></label>
+            <label>Website <input name="website" type="url" inputmode="url" placeholder="example.org" maxlength="200"></label>
+            <label>WhatsApp <input name="whatsapp" inputmode="tel" placeholder="+1 555 000 0000" maxlength="30"></label>
+            <label>Telegram <input name="telegram" placeholder="@username" maxlength="60"></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Address</legend>
+          <label>Street <input name="street" maxlength="200"></label>
+          <div class="grid-2">
+            <label>City <input name="city" maxlength="100"></label>
+            <label>State / region <input name="state" maxlength="100"></label>
+            <label>Postal code <input name="postalCode" maxlength="20"></label>
+            <label>Country <input name="country" maxlength="100"></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Campaign attributes</legend>
+          <div id="tag-checkboxes" class="tag-checkboxes"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Status &amp; outreach</legend>
+          <div class="grid-2">
+            <label>Donation status
+              <select name="donationStatus" id="donation-select"></select>
+            </label>
+            <label>Endorsement status
+              <select name="endorsementStatus" id="endorsement-select"></select>
+            </label>
+            <label>Priority
+              <select name="priority" id="priority-select"></select>
+            </label>
+            <label>Follow up by
+              <input name="followUpDate" type="date">
+            </label>
+          </div>
+        </fieldset>
+
+        <label class="notes-label">Notes
+          <textarea name="notes" rows="3" maxlength="4000"></textarea>
+        </label>
+      </div>
+
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" id="btn-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btn-save">Save contact</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Log activity dialog -->
+  <dialog id="log-dialog" aria-labelledby="log-title">
+    <form id="log-form" method="dialog" novalidate>
+      <header class="dialog-header">
+        <h2 id="log-title">Log activity</h2>
+        <button type="button" class="btn-close" id="btn-log-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="dialog-body">
+        <p id="log-error" class="form-error" role="alert" hidden></p>
+        <div class="grid-2">
+          <label>Type
+            <select name="type" id="log-type-select"></select>
+          </label>
+          <label>Date
+            <input name="date" type="date" required>
+          </label>
+        </div>
+        <label id="log-amount-label" hidden>Amount (USD)
+          <input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="100.00">
+        </label>
+        <label>Note
+          <textarea name="note" rows="2" maxlength="1000" placeholder="What happened? Any commitments?"></textarea>
+        </label>
+        <label>Next follow-up (optional)
+          <input name="nextFollowUp" type="date">
+        </label>
+      </div>
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" id="btn-log-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save activity</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="lib.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
