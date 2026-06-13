@@ -4,7 +4,7 @@
 (() => {
   "use strict";
 
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
 
   const TAGS = [
     { id: "donor",                 label: "Donor" },
@@ -176,6 +176,14 @@
     c.connections = Array.isArray(raw.connections)
       ? [...new Set(raw.connections.filter(id => typeof id === "string" && id && id !== c.id))]
       : [];
+    // AI-generated strategic brief (saved so it persists and exports). Null until generated.
+    c.aiBrief = (raw.aiBrief && typeof raw.aiBrief === "object" && typeof raw.aiBrief.text === "string" && raw.aiBrief.text)
+      ? {
+          text: raw.aiBrief.text,
+          model: typeof raw.aiBrief.model === "string" ? raw.aiBrief.model : "",
+          generatedAt: isIsoDate(raw.aiBrief.generatedAt) ? raw.aiBrief.generatedAt : new Date().toISOString(),
+        }
+      : null;
     c.createdAt = isIsoDate(raw.createdAt) ? raw.createdAt : new Date().toISOString();
     c.updatedAt = isIsoDate(raw.updatedAt) ? raw.updatedAt : c.createdAt;
     if (!displayName(c)) return null; // must have some identity
@@ -342,7 +350,7 @@
     "street", "city", "state", "postalCode", "country",
     "tags", "donationStatus", "endorsementStatus", "priority", "followUpDate",
     "totalDonated", "donationCount", "lastInteraction", "interactionCount",
-    "connectionCount", "notes", "createdAt", "updatedAt",
+    "connectionCount", "briefGeneratedAt", "notes", "createdAt", "updatedAt",
   ];
 
   function csvValue(c, col) {
@@ -353,6 +361,7 @@
       case "lastInteraction": return lastInteractionDate(c) || "";
       case "interactionCount": return c.interactions.length || "";
       case "connectionCount": return (Array.isArray(c.connections) ? c.connections.length : 0) || "";
+      case "briefGeneratedAt": return c.aiBrief ? c.aiBrief.generatedAt : "";
       default: return c[col];
     }
   }

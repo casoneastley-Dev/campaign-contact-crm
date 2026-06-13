@@ -191,6 +191,15 @@ describe("schema v2 fields", () => {
     assert.equal(c.followUpDate, "");
   });
 
+  test("aiBrief defaults to null and normalizes a valid brief", () => {
+    assert.equal(normalizeContact({ firstName: "A" }).aiBrief, null);
+    assert.equal(normalizeContact({ firstName: "A", aiBrief: { text: "" } }).aiBrief, null);
+    const c = normalizeContact({ firstName: "A", aiBrief: { text: "Brief.", model: "claude-opus-4-8", generatedAt: "2026-06-13T00:00:00.000Z" } });
+    assert.equal(c.aiBrief.text, "Brief.");
+    assert.equal(c.aiBrief.model, "claude-opus-4-8");
+    assert.equal(c.aiBrief.generatedAt, "2026-06-13T00:00:00.000Z");
+  });
+
   test("drops invalid interactions and donations, keeps valid ones", () => {
     const c = normalizeContact({
       firstName: "A",

@@ -751,6 +751,68 @@ dialog[open]::backdrop { animation: fade-in .22s ease; }
 
 .dialog-body a { color: var(--primary); font-weight: 600; }
 
+/* ---------- Intelligence brief ---------- */
+.icon-btn.ai { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-soft); }
+.icon-btn.ai:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+.icon-btn.ai.has-brief { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+
+.btn-brief-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--primary);
+  background: var(--surface);
+  color: var(--primary);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+  margin-top: 4px;
+  transition: background var(--t-fast);
+}
+.btn-brief-open svg { width: 15px; height: 15px; }
+.btn-brief-open:hover { background: var(--primary-soft); }
+
+#brief-dialog .dialog-body { min-height: 200px; }
+
+.brief-meta { font-size: .75rem; color: var(--text-soft); margin-bottom: 12px; }
+
+.brief-prose { font-size: .9rem; line-height: 1.62; }
+.brief-prose h4 { font-size: .98rem; font-weight: 700; letter-spacing: -.01em; margin: 18px 0 6px; }
+.brief-prose h4:first-child { margin-top: 0; }
+.brief-prose h5 { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 14px 0 4px; }
+.brief-prose p { margin: 7px 0; overflow-wrap: anywhere; }
+.brief-prose ul, .brief-prose ol { margin: 7px 0; padding-left: 20px; }
+.brief-prose li { margin: 4px 0; }
+.brief-prose strong { font-weight: 700; }
+.brief-prose em { font-style: italic; }
+.brief-prose a { color: var(--primary); font-weight: 600; word-break: break-word; }
+
+.brief-sources { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 10px; }
+.brief-sources ul { margin: 6px 0 0; padding-left: 18px; }
+.brief-sources li { margin: 3px 0; }
+.brief-sources a { font-size: .82rem; }
+
+.brief-loading { text-align: center; padding: 44px 12px; }
+.brief-loading-title { font-weight: 700; margin: 16px 0 4px; }
+.brief-loading-sub { font-size: .82rem; color: var(--text-muted); margin: 0 0 20px; }
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: var(--r-full);
+  border: 3px solid var(--surface-3);
+  border-top-color: var(--primary);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.brief-error { padding: 28px 12px; text-align: center; }
+.brief-error p { margin: 4px 0; color: var(--danger); font-weight: 600; }
+.brief-error-detail { font-size: .8rem; color: var(--text-muted) !important; font-weight: 400 !important; word-break: break-word; }
+
 .form-error {
   background: var(--danger-bg);
   color: var(--danger);

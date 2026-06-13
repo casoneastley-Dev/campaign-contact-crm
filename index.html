@@ -277,6 +277,21 @@
     </form>
   </dialog>
 
+  <!-- Intelligence brief dialog -->
+  <dialog id="brief-dialog" aria-labelledby="brief-title">
+    <header class="dialog-header">
+      <h2 id="brief-title">Intelligence brief</h2>
+      <button type="button" class="btn-close" id="btn-brief-close" aria-label="Close">&times;</button>
+    </header>
+    <div class="dialog-body" id="brief-body">
+      <div id="brief-content"></div>
+    </div>
+    <footer class="dialog-footer">
+      <button type="button" class="btn btn-ghost" id="btn-brief-regen" hidden>Regenerate</button>
+      <button type="button" class="btn btn-primary" id="btn-brief-done">Done</button>
+    </footer>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="lib.js"></script>

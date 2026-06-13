@@ -6,6 +6,8 @@
 (() => {
   "use strict";
 
+  const LIB = globalThis.CRMLib;
+
   const STORE = {
     apiKey: "campaign-crm:ai:key",
     model: "campaign-crm:ai:model",
@@ -160,9 +162,136 @@ When campaign- or district-specific facts are provided below, treat them as grou
     return { ok: true, model: message.model, text: extractText(message) };
   }
 
+  // ---------- Intelligence brief ----------
+
+  // Compact, prompt-friendly serialization of the target contact.
+  function fmtContact(c) {
+    const lines = [`Name: ${LIB.displayName(c)}`];
+    if (c.organization) lines.push(`Organization: ${c.organization}`);
+    if (c.role) lines.push(`Role/title: ${c.role}`);
+    const loc = [c.city, c.state, c.country].filter(Boolean).join(", ");
+    if (loc) lines.push(`Location: ${loc}`);
+    const channels = [];
+    if (c.email) channels.push(`email ${c.email}`);
+    if (c.phone) channels.push(`phone ${c.phone}`);
+    if (c.website) channels.push(`web ${c.website}`);
+    if (c.whatsapp) channels.push(`WhatsApp ${c.whatsapp}`);
+    if (c.telegram) channels.push(`Telegram ${c.telegram}`);
+    if (channels.length) lines.push(`Contact: ${channels.join("; ")}`);
+    if (c.tags.length) lines.push(`Tags: ${c.tags.map(t => LIB.TAG_LABELS[t] || t).join(", ")}`);
+    lines.push(`Donation status: ${LIB.statusLabel(LIB.DONATION_STATUSES, c.donationStatus)}; total raised ${LIB.formatMoney(LIB.donationTotal(c))}`);
+    lines.push(`Endorsement status: ${LIB.statusLabel(LIB.ENDORSEMENT_STATUSES, c.endorsementStatus)}`);
+    lines.push(`Internal priority: ${c.priority}`);
+    if (c.notes) lines.push(`Staff notes: ${c.notes}`);
+    if (c.interactions.length) {
+      const recent = c.interactions.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
+        .map(i => `${i.date} ${LIB.statusLabel(LIB.INTERACTION_TYPES, i.type)}${i.note ? ` — ${i.note}` : ""}`);
+      lines.push(`Recent interactions: ${recent.join(" | ")}`);
+    }
+    return lines.join("\n");
+  }
+
+  // One-line-per-contact roster of everyone else, for network-leverage analysis.
+  function fmtRoster(target, contacts) {
+    return contacts
+      .filter(c => c.id !== target.id)
+      .map(c => {
+        const tags = c.tags.map(t => LIB.TAG_LABELS[t] || t).join(", ");
+        return `- ${LIB.displayName(c)}${c.organization ? ` (${c.organization})` : ""}${c.role ? `, ${c.role}` : ""}${tags ? ` [${tags}]` : ""}`;
+      })
+      .join("\n");
+  }
+
+  const BRIEF_INSTRUCTIONS = `Write the brief in Markdown using exactly these "##" sections:
+
+## Snapshot
+Who they are right now — current role, employer, affiliations. Verify against the web; flag anything you could not confirm.
+
+## Why they matter to the campaign
+Their concrete value: fundraising capacity, endorsement weight, volunteer/organizing pull, media reach, or influence.
+
+## Network & leverage
+Who they can plausibly connect Michael to, and which of OUR other contacts overlap with them. Map realistic introduction paths. Label each path INFERRED or SPECULATIVE and state what it rests on.
+
+## How to approach
+The ask, the right messenger, timing, talking points, and what to avoid. If they are marked do-not-contact, say so and recommend no outreach.
+
+## Devil's advocate
+Argue against prioritizing this person. Biggest risks, what could backfire, and what would change your assessment.
+
+## Recommended next step
+One concrete action, and why.
+
+## Sources
+The sources you used, with dates — or a clear statement of what you could not verify.
+
+Keep it tight and decision-useful. Apply the VERIFIED / INFERRED / SPECULATIVE labels from your protocol.`;
+
+  // Pull web-search result URLs out of the response for a "sources" list.
+  function extractSources(message) {
+    const seen = new Set();
+    const out = [];
+    const walk = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (typeof node.url === "string" && /^https?:\/\//.test(node.url) && !seen.has(node.url)) {
+        seen.add(node.url);
+        out.push({ url: node.url, title: typeof node.title === "string" && node.title ? node.title : node.url });
+      }
+      for (const k of Object.keys(node)) walk(node[k]);
+    };
+    walk(message.content);
+    return out.slice(0, 15);
+  }
+
+  /** Generate a strategic brief for one contact, using web search + the whole
+      roster as context. Loops on pause_turn so server-side search can finish. */
+  async function generateBrief({ contact, contacts, signal }) {
+    const cfg = getConfig();
+    const tools = cfg.webSearch ? [WEB_SEARCH_TOOL] : undefined;
+    const linked = LIB.connectionsOf(contacts, contact).map(c => LIB.displayName(c));
+
+    const userText = [
+      "Produce a strategic intelligence brief on the following contact for Michael's congressional campaign.",
+      "",
+      "=== TARGET CONTACT ===",
+      fmtContact(contact),
+      linked.length ? `\nKnown connections in our database: ${linked.join(", ")}` : "",
+      "",
+      "=== OUR OTHER CONTACTS (for network-leverage analysis) ===",
+      fmtRoster(contact, contacts) || "(none yet)",
+      "",
+      BRIEF_INSTRUCTIONS,
+    ].filter(Boolean).join("\n");
+
+    let messages = [{ role: "user", content: userText }];
+    let message;
+    let guard = 0;
+    do {
+      message = await callMessages({
+        system: buildSystem(),
+        messages,
+        tools,
+        maxTokens: 4096,
+        effort: "high",
+        signal,
+      });
+      if (message.stop_reason === "pause_turn") {
+        messages = messages.concat([{ role: "assistant", content: message.content }]);
+      }
+    } while (message.stop_reason === "pause_turn" && ++guard < 8);
+
+    return {
+      text: extractText(message),
+      model: message.model,
+      sources: extractSources(message),
+      stopReason: message.stop_reason,
+    };
+  }
+
   globalThis.CRMAI = {
     MODELS, DEFAULT_MODEL, DEFAULT_PROTOCOL, WEB_SEARCH_TOOL,
     getConfig, saveConfig, isConfigured, buildSystem,
-    callMessages, testConnection, extractText,
+    callMessages, testConnection, extractText, generateBrief,
   };
 })();

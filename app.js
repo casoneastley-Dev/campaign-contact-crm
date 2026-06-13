@@ -163,6 +163,7 @@
   const ICON_EDIT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>';
   const ICON_DELETE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>';
   const ICON_LOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2Z"/></svg>';
+  const ICON_BRIEF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 3 1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Zm6 9 .95 2.3 2.3.95-2.3.95L18 18.5l-.95-2.3-2.3-.95 2.3-.95L18 12ZM6 14l.8 1.95L8.75 16.7l-1.95.8L6 19.45l-.8-1.95L3.25 16.7l1.95-.75L6 14Z"/></svg>';
 
   function render() {
     const visible = visibleContacts();
@@ -260,6 +261,7 @@
             </div>
           </div>
           <div class="card-actions">
+            <button class="icon-btn ai${c.aiBrief ? " has-brief" : ""}" data-action="brief" aria-label="AI brief for ${escapeHtml(displayName(c))}" title="${c.aiBrief ? "View AI brief" : "Generate AI brief"}">${ICON_BRIEF}</button>
             <button class="icon-btn" data-action="log" aria-label="Log activity for ${escapeHtml(displayName(c))}" title="Log activity">${ICON_LOG}</button>
             <button class="icon-btn" data-action="edit" aria-label="Edit ${escapeHtml(displayName(c))}" title="Edit">${ICON_EDIT}</button>
             <button class="icon-btn danger" data-action="delete" aria-label="Delete ${escapeHtml(displayName(c))}" title="Delete">${ICON_DELETE}</button>
@@ -340,9 +342,14 @@
     const linked = connectionsOf(contacts, c);
     const suggestions = suggestedConnections(contacts, c, 3);
 
-    if (!addressParts.length && !c.notes && !history.length && !linked.length && !suggestions.length) return "";
+    if (!addressParts.length && !c.notes && !history.length && !linked.length && !suggestions.length && !c.aiBrief) return "";
 
     let body = "";
+    if (c.aiBrief) {
+      body += `<p class="label">Intelligence brief</p>` +
+        `<button type="button" class="btn-brief-open" data-action="brief">` +
+        `${ICON_BRIEF}<span>View brief · ${escapeHtml(shortDate(c.aiBrief.generatedAt))}</span></button>`;
+    }
     if (history.length) {
       body += `<p class="label">Activity (${history.length})</p><ul class="history-list">` +
         history.map(h => `
@@ -706,6 +713,118 @@
     }
   }
 
+  // ---------- Intelligence brief ----------
+
+  const briefDialog = $("#brief-dialog");
+  let briefContactId = null;
+  let briefAbort = null;
+
+  function fmtDateTime(iso) {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? "" : d.toLocaleString();
+  }
+
+  /** Minimal, XSS-safe Markdown → HTML. Escapes everything first, then adds a
+      controlled set of tags (headings, bold/italic, lists, links). */
+  function renderMarkdown(md) {
+    const inline = (s) => s
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    const lines = escapeHtml(md).split(/\r?\n/);
+    let html = "";
+    let list = null;
+    const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { closeList(); continue; }
+      let m;
+      if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
+        closeList();
+        html += m[1].length <= 2 ? `<h4>${inline(m[2])}</h4>` : `<h5>${inline(m[2])}</h5>`;
+      } else if ((m = line.match(/^[-*]\s+(.*)$/))) {
+        if (list !== "ul") { closeList(); html += "<ul>"; list = "ul"; }
+        html += `<li>${inline(m[1])}</li>`;
+      } else if ((m = line.match(/^\d+\.\s+(.*)$/))) {
+        if (list !== "ol") { closeList(); html += "<ol>"; list = "ol"; }
+        html += `<li>${inline(m[1])}</li>`;
+      } else {
+        closeList();
+        html += `<p>${inline(line)}</p>`;
+      }
+    }
+    closeList();
+    return html;
+  }
+
+  function openBrief(contact) {
+    if (!AI || !AI.isConfigured()) {
+      toast("Add your Anthropic API key in Settings first");
+      openSettings();
+      return;
+    }
+    briefContactId = contact.id;
+    $("#brief-title").textContent = `Intelligence brief — ${displayName(contact)}`;
+    briefDialog.showModal();
+    if (contact.aiBrief) renderBriefResult(contact.aiBrief);
+    else startBrief(contact);
+  }
+
+  function renderBriefResult(brief, sources) {
+    $("#btn-brief-regen").hidden = false;
+    const meta = `Generated ${escapeHtml(fmtDateTime(brief.generatedAt))}${brief.model ? " · " + escapeHtml(brief.model) : ""}`;
+    let html = `<div class="brief-meta">${meta}</div><div class="brief-prose">${renderMarkdown(brief.text)}</div>`;
+    if (sources && sources.length) {
+      html += `<div class="brief-sources"><p class="label">Web sources consulted</p><ul>` +
+        sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a></li>`).join("") +
+        `</ul></div>`;
+    }
+    $("#brief-content").innerHTML = html;
+    $("#brief-body").scrollTop = 0;
+  }
+
+  function showBriefError(msg) {
+    $("#btn-brief-regen").hidden = false;
+    $("#brief-content").innerHTML =
+      `<div class="brief-error"><p>⚠ Couldn't generate the brief.</p><p class="brief-error-detail">${escapeHtml(msg)}</p></div>`;
+  }
+
+  async function startBrief(contact) {
+    $("#btn-brief-regen").hidden = true;
+    briefAbort = new AbortController();
+    $("#brief-content").innerHTML =
+      `<div class="brief-loading">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="brief-loading-title">Researching ${escapeHtml(displayName(contact))}…</p>
+        <p class="brief-loading-sub">Searching the web and analyzing the network. This usually takes 20–60 seconds.</p>
+        <button type="button" class="btn btn-ghost" id="btn-brief-cancel">Cancel</button>
+      </div>`;
+    $("#btn-brief-cancel").addEventListener("click", () => { if (briefAbort) briefAbort.abort(); });
+
+    try {
+      const result = await AI.generateBrief({ contact, contacts, signal: briefAbort.signal });
+      if (briefContactId !== contact.id) return; // dialog was closed or switched
+      if (!result.text) { showBriefError("The model returned an empty response. Try again."); return; }
+      const idx = contacts.findIndex(x => x.id === contact.id);
+      if (idx !== -1) {
+        contacts[idx].aiBrief = { text: result.text, model: result.model, generatedAt: new Date().toISOString() };
+        contacts[idx].updatedAt = new Date().toISOString();
+        saveContacts();
+        render();
+        renderBriefResult(contacts[idx].aiBrief, result.sources);
+      }
+      toast("Brief generated");
+    } catch (err) {
+      if (err.name === "AbortError") { briefDialog.close(); return; }
+      showBriefError(err.message);
+    } finally {
+      briefAbort = null;
+    }
+  }
+
   // ---------- Export / import ----------
 
   function timestamp() {
@@ -843,6 +962,7 @@
       if (btn.dataset.action === "edit") openDialog(c);
       else if (btn.dataset.action === "log") openLogDialog(c);
       else if (btn.dataset.action === "delete") handleDelete(id);
+      else if (btn.dataset.action === "brief") openBrief(c);
       else if (btn.dataset.action === "link") {
         const targetId = btn.dataset.target;
         const target = contacts.find(x => x.id === targetId);
@@ -896,6 +1016,18 @@
       settingsForm.elements.protocol.value = AI.DEFAULT_PROTOCOL;
     });
     updateAiStatus();
+
+    // Intelligence brief dialog
+    $("#btn-brief-done").addEventListener("click", () => briefDialog.close());
+    $("#btn-brief-close").addEventListener("click", () => briefDialog.close());
+    $("#btn-brief-regen").addEventListener("click", () => {
+      const c = contacts.find(x => x.id === briefContactId);
+      if (c) startBrief(c);
+    });
+    briefDialog.addEventListener("close", () => {
+      if (briefAbort) briefAbort.abort();
+      briefContactId = null;
+    });
 
     $("#btn-export-csv").addEventListener("click", exportCsv);
     $("#btn-export-json").addEventListener("click", exportJson);
