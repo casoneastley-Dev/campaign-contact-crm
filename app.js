@@ -213,6 +213,21 @@
     emptyEl.hidden = false;
   }
 
+  // Up to two initials for the monogram avatar.
+  function initials(c) {
+    const parts = displayName(c).trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "•";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  // Deterministic hue (0–359) from a string, so each contact keeps a stable color.
+  function hueFor(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+
   function renderCard(c) {
     const li = document.createElement("li");
     const dnc = c.tags.includes("do-not-contact");
@@ -235,9 +250,12 @@
       ${dnc ? '<div class="dnc-banner">⚠ DO NOT CONTACT</div>' : ""}
       <div class="card-main">
         <div class="card-top">
-          <div>
-            <h3 class="contact-name">${escapeHtml(displayName(c))}</h3>
-            ${subLine(c) ? `<p class="contact-sub">${escapeHtml(subLine(c))}</p>` : ""}
+          <div class="card-id">
+            <div class="avatar" style="--avatar-h: ${hueFor(displayName(c) || c.id)}" aria-hidden="true">${escapeHtml(initials(c))}</div>
+            <div class="card-headings">
+              <h3 class="contact-name">${escapeHtml(displayName(c))}</h3>
+              ${subLine(c) ? `<p class="contact-sub">${escapeHtml(subLine(c))}</p>` : ""}
+            </div>
           </div>
           <div class="card-actions">
             <button class="icon-btn" data-action="log" aria-label="Log activity for ${escapeHtml(displayName(c))}" title="Log activity">${ICON_LOG}</button>

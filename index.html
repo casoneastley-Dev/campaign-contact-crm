@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Lightweight campaign contact manager. Data stays on your device.">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#4f46e5">
   <title>Campaign Contact CRM</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -71,12 +71,14 @@
   </main>
 
   <footer class="app-footer">
-    <span id="footer-count" class="footer-count"></span>
-    <div class="footer-actions">
-      <button id="btn-export-csv" class="btn btn-ghost" type="button">Export CSV</button>
-      <button id="btn-export-json" class="btn btn-ghost" type="button">Export JSON</button>
-      <button id="btn-import" class="btn btn-ghost" type="button">Import JSON</button>
-      <input id="import-file" type="file" accept=".json,application/json" hidden>
+    <div class="footer-inner">
+      <span id="footer-count" class="footer-count"></span>
+      <div class="footer-actions">
+        <button id="btn-export-csv" class="btn btn-ghost" type="button">Export CSV</button>
+        <button id="btn-export-json" class="btn btn-ghost" type="button">Export JSON</button>
+        <button id="btn-import" class="btn btn-ghost" type="button">Import JSON</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
     </div>
   </footer>
 
