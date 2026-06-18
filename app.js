@@ -825,6 +825,102 @@
     }
   }
 
+  // ---------- Strategy console ----------
+
+  const strategyDialog = $("#strategy-dialog");
+  let strategyHistory = [];   // [{ role, content, sources? }]
+  let strategyAbort = null;
+  let strategyBusy = false;
+
+  const STRATEGY_STARTERS = [
+    "Who in my contacts could help me host a fundraiser, and how?",
+    "Map the best path from my contacts toward a high-profile endorsement.",
+    "Which of my contacts would get along at an event, and who should I seat together?",
+    "Which contacts could help make viral content, and what would it be?",
+  ];
+
+  function renderMsgSources(sources) {
+    return `<div class="msg-sources">Sources: ` +
+      sources.map(s => `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a>`).join(" · ") +
+      `</div>`;
+  }
+
+  function renderStrategy() {
+    const wrap = $("#strategy-messages");
+    $("#btn-strategy-clear").hidden = strategyHistory.length === 0;
+
+    if (!strategyHistory.length && !strategyBusy) {
+      wrap.innerHTML =
+        `<div class="strategy-empty">
+          <p class="strategy-empty-title">Ask anything about your network</p>
+          <p class="strategy-empty-sub">It reasons over all your contacts and connections, and searches the web for anything current.</p>
+          <div class="strategy-starters">` +
+          STRATEGY_STARTERS.map(s => `<button type="button" class="strategy-starter" data-starter="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("") +
+        `</div></div>`;
+      return;
+    }
+
+    let html = "";
+    for (const m of strategyHistory) {
+      if (m.role === "user") {
+        html += `<div class="msg msg-user">${escapeHtml(m.content)}</div>`;
+      } else {
+        html += `<div class="msg msg-ai"><div class="brief-prose">${renderMarkdown(m.content)}</div>` +
+          (m.sources && m.sources.length ? renderMsgSources(m.sources) : "") + `</div>`;
+      }
+    }
+    if (strategyBusy) {
+      html += `<div class="msg msg-ai"><div class="typing" aria-label="Thinking"><span></span><span></span><span></span></div></div>`;
+    }
+    wrap.innerHTML = html;
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  function openStrategy() {
+    if (!AI || !AI.isConfigured()) {
+      toast("Add your Anthropic API key in Settings first");
+      openSettings();
+      return;
+    }
+    renderStrategy();
+    strategyDialog.showModal();
+    $("#strategy-text").focus();
+  }
+
+  function autoGrow(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
+  async function sendStrategy(text) {
+    const q = (text || "").trim();
+    if (!q || strategyBusy) return;
+
+    strategyHistory.push({ role: "user", content: q });
+    strategyBusy = true;
+    renderStrategy();
+    $("#strategy-text").value = "";
+    autoGrow($("#strategy-text"));
+
+    strategyAbort = new AbortController();
+    try {
+      const apiMessages = strategyHistory.map(m => ({ role: m.role, content: m.content }));
+      const result = await AI.chatStrategy({ messages: apiMessages, contacts, signal: strategyAbort.signal });
+      strategyBusy = false;
+      strategyHistory.push(result.text
+        ? { role: "assistant", content: result.text, sources: result.sources }
+        : { role: "assistant", content: "_(No response — try again.)_" });
+      renderStrategy();
+    } catch (err) {
+      strategyBusy = false;
+      if (err.name === "AbortError") { renderStrategy(); return; }
+      strategyHistory.push({ role: "assistant", content: `⚠ ${err.message}` });
+      renderStrategy();
+    } finally {
+      strategyAbort = null;
+    }
+  }
+
   // ---------- Export / import ----------
 
   function timestamp() {
@@ -1028,6 +1124,27 @@
       if (briefAbort) briefAbort.abort();
       briefContactId = null;
     });
+
+    // Strategy console
+    $("#btn-strategy").addEventListener("click", openStrategy);
+    $("#btn-strategy-close").addEventListener("click", () => strategyDialog.close());
+    $("#btn-strategy-clear").addEventListener("click", () => { strategyHistory = []; renderStrategy(); });
+    $("#strategy-form").addEventListener("submit", e => {
+      e.preventDefault();
+      sendStrategy($("#strategy-text").value);
+    });
+    $("#strategy-text").addEventListener("input", e => autoGrow(e.target));
+    $("#strategy-text").addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendStrategy($("#strategy-text").value);
+      }
+    });
+    $("#strategy-messages").addEventListener("click", e => {
+      const starter = e.target.closest("[data-starter]");
+      if (starter) sendStrategy(starter.dataset.starter);
+    });
+    strategyDialog.addEventListener("close", () => { if (strategyAbort) strategyAbort.abort(); });
 
     $("#btn-export-csv").addEventListener("click", exportCsv);
     $("#btn-export-json").addEventListener("click", exportJson);

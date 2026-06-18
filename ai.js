@@ -289,9 +289,72 @@ Keep it tight and decision-useful. Apply the VERIFIED / INFERRED / SPECULATIVE l
     };
   }
 
+  // ---------- Strategy console (chat) ----------
+
+  // Full roster with connections, for whole-network reasoning. One line each.
+  function fmtRosterFull(contacts) {
+    return contacts.map(c => {
+      const bits = [LIB.displayName(c)];
+      if (c.organization) bits.push(`org: ${c.organization}`);
+      if (c.role) bits.push(`role: ${c.role}`);
+      const loc = [c.city, c.state].filter(Boolean).join(", ");
+      if (loc) bits.push(`loc: ${loc}`);
+      const tags = c.tags.map(t => LIB.TAG_LABELS[t] || t).join(", ");
+      if (tags) bits.push(`tags: ${tags}`);
+      if (c.donationStatus !== "none") {
+        bits.push(`donor: ${LIB.statusLabel(LIB.DONATION_STATUSES, c.donationStatus)} (${LIB.formatMoney(LIB.donationTotal(c))})`);
+      }
+      if (c.endorsementStatus !== "none") bits.push(`endorsement: ${LIB.statusLabel(LIB.ENDORSEMENT_STATUSES, c.endorsementStatus)}`);
+      const linked = LIB.connectionsOf(contacts, c).map(x => LIB.displayName(x));
+      if (linked.length) bits.push(`connections: ${linked.join("; ")}`);
+      if (c.notes) bits.push(`notes: ${c.notes}`);
+      return `- ${bits.join(" | ")}`;
+    }).join("\n");
+  }
+
+  const STRATEGY_INSTRUCTIONS = `You are the strategy console for Michael's congressional campaign. The full contact database is provided below. Answer staff questions about how to leverage these relationships: event planning and guest pairing, fundraising, endorsements, introductions and network paths to specific people, coalition-building, and content/marketing ideas.
+
+How to answer:
+- Reason over the contacts in the database and name specific people from it when relevant.
+- For "who could connect me to X" questions, map realistic introduction paths through the database and label each step VERIFIED / INFERRED / SPECULATIVE.
+- Use web search for anything current, or about people/organizations not in the database.
+- Be concrete and decision-useful: give names, the specific ask, the sequence of steps, and the reasoning. Apply your devil's-advocate and fact-checking protocol before answering.`;
+
+  function buildStrategySystem(contacts) {
+    const roster = fmtRosterFull(contacts) || "(no contacts in the database yet)";
+    return buildSystem(`${STRATEGY_INSTRUCTIONS}\n\n=== CONTACT DATABASE ===\n${roster}`);
+  }
+
+  /** Multi-turn strategy chat. `messages` is the running [{role,content}] history
+      (text turns). Loops on pause_turn so server-side web search can finish. */
+  async function chatStrategy({ messages, contacts, signal }) {
+    const cfg = getConfig();
+    const tools = cfg.webSearch ? [WEB_SEARCH_TOOL] : undefined;
+    const system = buildStrategySystem(contacts);
+
+    let msgs = messages.slice();
+    let message;
+    let guard = 0;
+    do {
+      message = await callMessages({
+        system, messages: msgs, tools, maxTokens: 4096, effort: "high", signal,
+      });
+      if (message.stop_reason === "pause_turn") {
+        msgs = msgs.concat([{ role: "assistant", content: message.content }]);
+      }
+    } while (message.stop_reason === "pause_turn" && ++guard < 8);
+
+    return {
+      text: extractText(message),
+      model: message.model,
+      sources: extractSources(message),
+      stopReason: message.stop_reason,
+    };
+  }
+
   globalThis.CRMAI = {
     MODELS, DEFAULT_MODEL, DEFAULT_PROTOCOL, WEB_SEARCH_TOOL,
     getConfig, saveConfig, isConfigured, buildSystem,
-    callMessages, testConnection, extractText, generateBrief,
+    callMessages, testConnection, extractText, generateBrief, chatStrategy,
   };
 })();
