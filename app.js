@@ -827,7 +827,7 @@
 
   // ---------- Strategy console ----------
 
-  const strategyDialog = $("#strategy-dialog");
+  const strategyPanel = $("#strategy-panel");
   let strategyHistory = [];   // [{ role, content, sources? }]
   let strategyAbort = null;
   let strategyBusy = false;
@@ -883,8 +883,15 @@
       return;
     }
     renderStrategy();
-    strategyDialog.showModal();
+    strategyPanel.hidden = false;
+    document.body.style.overflow = "hidden";
     $("#strategy-text").focus();
+  }
+
+  function closeStrategy() {
+    strategyPanel.hidden = true;
+    document.body.style.overflow = "";
+    if (strategyAbort) strategyAbort.abort();
   }
 
   function autoGrow(el) {
@@ -1127,8 +1134,13 @@
 
     // Strategy console
     $("#btn-strategy").addEventListener("click", openStrategy);
-    $("#btn-strategy-close").addEventListener("click", () => strategyDialog.close());
+    $("#btn-strategy-close").addEventListener("click", closeStrategy);
     $("#btn-strategy-clear").addEventListener("click", () => { strategyHistory = []; renderStrategy(); });
+    // Click on the dimmed backdrop (outside the panel card) closes it.
+    strategyPanel.addEventListener("click", e => { if (e.target === strategyPanel) closeStrategy(); });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !strategyPanel.hidden) closeStrategy();
+    });
     $("#strategy-form").addEventListener("submit", e => {
       e.preventDefault();
       sendStrategy($("#strategy-text").value);
@@ -1144,7 +1156,6 @@
       const starter = e.target.closest("[data-starter]");
       if (starter) sendStrategy(starter.dataset.starter);
     });
-    strategyDialog.addEventListener("close", () => { if (strategyAbort) strategyAbort.abort(); });
 
     $("#btn-export-csv").addEventListener("click", exportCsv);
     $("#btn-export-json").addEventListener("click", exportJson);
