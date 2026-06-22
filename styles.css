@@ -825,6 +825,7 @@ dialog[open]::backdrop { animation: fade-in .22s ease; }
 
 .strategy-messages {
   flex: 1;
+  min-height: 0; /* let the scroll area shrink instead of pushing the input out */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
