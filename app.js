@@ -1164,23 +1164,21 @@
     });
   }
 
-  // ---------- PWA ----------
+  // ---------- Service worker cleanup ----------
 
-  function registerServiceWorker() {
-    if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
-
-    // When a newly-deployed worker takes control, reload once so the page is
-    // never left running a stale JS/CSS bundle.
-    let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
-    });
-
-    navigator.serviceWorker.register("sw.js")
-      .then(reg => { reg.update(); })
-      .catch(err => console.warn("Service worker registration failed:", err));
+  // The previous service worker caused stale-bundle problems that were hard to
+  // clear. Remove it entirely: the app is a static site backed by localStorage
+  // and does not need offline caching right now. This unregisters any existing
+  // worker and wipes its caches so every load comes straight from the network.
+  function removeServiceWorker() {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(r => r.unregister()))
+        .catch(() => {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+    }
   }
 
   // ---------- Init ----------
@@ -1188,5 +1186,5 @@
   buildFormControls();
   wireEvents();
   render();
-  registerServiceWorker();
+  removeServiceWorker();
 })();
