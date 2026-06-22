@@ -1167,11 +1167,20 @@
   // ---------- PWA ----------
 
   function registerServiceWorker() {
-    if ("serviceWorker" in navigator && location.protocol !== "file:") {
-      navigator.serviceWorker.register("sw.js").catch(err =>
-        console.warn("Service worker registration failed:", err)
-      );
-    }
+    if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+
+    // When a newly-deployed worker takes control, reload once so the page is
+    // never left running a stale JS/CSS bundle.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
+    navigator.serviceWorker.register("sw.js")
+      .then(reg => { reg.update(); })
+      .catch(err => console.warn("Service worker registration failed:", err));
   }
 
   // ---------- Init ----------

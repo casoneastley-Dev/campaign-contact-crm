@@ -818,7 +818,8 @@ dialog[open]::backdrop { animation: fade-in .22s ease; }
   display: flex;
   flex-direction: column;
   width: min(680px, calc(100vw - 24px));
-  height: min(740px, calc(100dvh - 40px));
+  height: min(640px, calc(100dvh - 96px));
+  margin: auto; /* center in the viewport */
   padding: 0;
 }
 .strategy-header-actions { display: flex; align-items: center; gap: 6px; }
