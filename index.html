@@ -123,6 +123,17 @@
         </fieldset>
 
         <fieldset>
+          <legend>Social media</legend>
+          <div class="grid-2">
+            <label>X / Twitter <input name="twitter" autocomplete="off" placeholder="@handle or URL" maxlength="200"></label>
+            <label>Instagram <input name="instagram" autocomplete="off" placeholder="@handle or URL" maxlength="200"></label>
+            <label>Facebook <input name="facebook" autocomplete="off" placeholder="username or URL" maxlength="200"></label>
+            <label>LinkedIn <input name="linkedin" autocomplete="off" placeholder="username or URL" maxlength="200"></label>
+            <label>TikTok <input name="tiktok" autocomplete="off" placeholder="@handle or URL" maxlength="200"></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend>Address</legend>
           <label>Street <input name="street" autocomplete="off" maxlength="200"></label>
           <div class="grid-2">
@@ -251,6 +262,10 @@
             <input type="checkbox" name="webSearch" id="ai-websearch">
             <span>Let Claude search the web for current information (recommended)</span>
           </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="selfCritique" id="ai-selfcritique">
+            <span>Self-critique pass — Claude reviews and fact-checks its own brief before showing it (recommended; slower, higher quality)</span>
+          </label>
         </fieldset>
 
         <fieldset>
@@ -269,7 +284,8 @@
             Facts about this race, district, candidate, and opponents. Treated as
             ground truth. The more you add, the sharper the analysis.
           </p>
-          <textarea name="knowledge" id="ai-knowledge" rows="6" placeholder="e.g. District: FL-15. Incumbent: … Primary date: … Key issues: … Opponent: …"></textarea>
+          <textarea name="knowledge" id="ai-knowledge" rows="8" placeholder="e.g. District: FL-22. Primary date: … Key issues: … Opponent: …"></textarea>
+          <button type="button" class="btn-text" id="btn-ai-reset-knowledge">Reset to FL-22 default (June 2026)</button>
         </fieldset>
       </div>
 

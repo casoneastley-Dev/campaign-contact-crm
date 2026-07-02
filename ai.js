@@ -14,6 +14,7 @@
     webSearch: "campaign-crm:ai:websearch",
     protocol: "campaign-crm:ai:protocol",
     knowledge: "campaign-crm:ai:knowledge",
+    selfCritique: "campaign-crm:ai:selfcritique",
   };
 
   const API_URL = "https://api.anthropic.com/v1/messages";
@@ -55,6 +56,24 @@ OPERATING PROTOCOL — follow on every response:
 
 When campaign- or district-specific facts are provided below, treat them as ground truth about this race.`;
 
+  // Default campaign/district knowledge base — FL-22, current as of June 2026.
+  // Editable in Settings; VERIFY items are for the AI to resolve via web search.
+  const DEFAULT_KNOWLEDGE = `DISTRICT: Florida's 22nd Congressional District (FL-22) — REDRAWN in the 2026 mid-decade redistricting; new lines effective for the 2026 elections.
+
+REDISTRICTING (2026): DeSantis proposed the new congressional map ~Apr 27, 2026; the Legislature passed it Apr 29, 2026; signed into law May 4, 2026. Statewide it is engineered for ~24R-4D across 28 seats and explicitly targeted 4 Democratic-held seats including FL-22. Challenged under the 2010 Fair Districts Amendment; on May 26, 2026 a judge ruled the map stays in effect for the 2026 elections pending litigation.
+
+PARTISAN LEAN (KEY FACT): The redraw flipped FL-22 from Democratic-leaning to REPUBLICAN-leaning — roughly R+10 by 2024 presidential results. Treat the new FL-22 as a GOP-favored, effectively open seat for 2026. WARNING: some references (e.g. Ballotpedia's FL-22 page) still show the OLD district's D+4 Cook PVI and old boundaries — do not use pre-redraw figures for the current race.
+
+SEAT STATUS: Lois Frankel (D), the prior FL-22 incumbent, has said she will run in the NEW FL-23, not the redrawn FL-22.
+
+GEOGRAPHY (VERIFY against the enacted map — sources conflict): Old (2023-27) FL-22 was the Atlantic coastline from northern Broward to northern Palm Beach (West Palm Beach, Palm Beach Gardens, Boca Raton, Deerfield Beach, Coconut Creek, much of Fort Lauderdale). The new (2026) FL-22 is redrawn more Republican; one report describes it stretching from Broward toward the outskirts of Naples. Confirm exact counties/cities via web search before relying on geography.
+
+CANDIDATES (VERIFY — listings stale as of June 2026): Older listings show a Democratic primary of Frankel, Ian Blake, and Victoria Doyle, which conflicts with Frankel moving to FL-23. The Republican field for the now-GOP-leaning seat is not yet confirmed. Check the Florida Division of Elections (dos.elections.myflorida.com) for the authoritative candidate list.
+
+KEY DATES: Primary Aug 18, 2026; General Nov 3, 2026.
+
+REGION CONTEXT (South Florida baseline — confirm which apply to the new lines): property-insurance costs, housing affordability, climate/flooding/sea-level rise, large Jewish/Israel-engaged constituency, seniors/Medicare, immigration.`;
+
   // ---------- Config ----------
 
   function getConfig() {
@@ -64,7 +83,9 @@ When campaign- or district-specific facts are provided below, treat them as grou
       // Web search defaults ON; only "off" disables it.
       webSearch: localStorage.getItem(STORE.webSearch) !== "off",
       protocol: localStorage.getItem(STORE.protocol) || DEFAULT_PROTOCOL,
-      knowledge: localStorage.getItem(STORE.knowledge) || "",
+      knowledge: localStorage.getItem(STORE.knowledge) || DEFAULT_KNOWLEDGE,
+      // Self-critique pass on briefs defaults ON; only "off" disables it.
+      selfCritique: localStorage.getItem(STORE.selfCritique) !== "off",
     };
   }
 
@@ -72,6 +93,7 @@ When campaign- or district-specific facts are provided below, treat them as grou
     if (cfg.apiKey != null) localStorage.setItem(STORE.apiKey, String(cfg.apiKey).trim());
     if (cfg.model != null) localStorage.setItem(STORE.model, cfg.model);
     if (cfg.webSearch != null) localStorage.setItem(STORE.webSearch, cfg.webSearch ? "on" : "off");
+    if (cfg.selfCritique != null) localStorage.setItem(STORE.selfCritique, cfg.selfCritique ? "on" : "off");
     if (cfg.protocol != null) localStorage.setItem(STORE.protocol, cfg.protocol);
     if (cfg.knowledge != null) localStorage.setItem(STORE.knowledge, cfg.knowledge);
   }
@@ -178,6 +200,13 @@ When campaign- or district-specific facts are provided below, treat them as grou
     if (c.whatsapp) channels.push(`WhatsApp ${c.whatsapp}`);
     if (c.telegram) channels.push(`Telegram ${c.telegram}`);
     if (channels.length) lines.push(`Contact: ${channels.join("; ")}`);
+    const socials = [];
+    if (c.twitter) socials.push(`X/Twitter ${c.twitter}`);
+    if (c.instagram) socials.push(`Instagram ${c.instagram}`);
+    if (c.facebook) socials.push(`Facebook ${c.facebook}`);
+    if (c.linkedin) socials.push(`LinkedIn ${c.linkedin}`);
+    if (c.tiktok) socials.push(`TikTok ${c.tiktok}`);
+    if (socials.length) lines.push(`Social media (public profiles — analyze reach, audience, and content angles): ${socials.join("; ")}`);
     if (c.tags.length) lines.push(`Tags: ${c.tags.map(t => LIB.TAG_LABELS[t] || t).join(", ")}`);
     lines.push(`Donation status: ${LIB.statusLabel(LIB.DONATION_STATUSES, c.donationStatus)}; total raised ${LIB.formatMoney(LIB.donationTotal(c))}`);
     lines.push(`Endorsement status: ${LIB.statusLabel(LIB.ENDORSEMENT_STATUSES, c.endorsementStatus)}`);
@@ -264,27 +293,60 @@ Keep it tight and decision-useful. Apply the VERIFIED / INFERRED / SPECULATIVE l
       BRIEF_INSTRUCTIONS,
     ].filter(Boolean).join("\n");
 
-    let messages = [{ role: "user", content: userText }];
-    let message;
-    let guard = 0;
-    do {
-      message = await callMessages({
-        system: buildSystem(),
-        messages,
-        tools,
-        maxTokens: 4096,
-        effort: "high",
-        signal,
-      });
-      if (message.stop_reason === "pause_turn") {
-        messages = messages.concat([{ role: "assistant", content: message.content }]);
+    const system = buildSystem();
+
+    // One model turn; loops on pause_turn so server-side web search can finish.
+    const runTurn = async (messages) => {
+      let msgs = messages;
+      let message;
+      let guard = 0;
+      do {
+        message = await callMessages({
+          system, messages: msgs, tools, maxTokens: 4096, effort: "high", signal,
+        });
+        if (message.stop_reason === "pause_turn") {
+          msgs = msgs.concat([{ role: "assistant", content: message.content }]);
+        }
+      } while (message.stop_reason === "pause_turn" && ++guard < 8);
+      return message;
+    };
+
+    const messages = [{ role: "user", content: userText }];
+    let message = await runTurn(messages);
+    let sources = extractSources(message);
+    const draft = extractText(message);
+
+    // Self-critique pass ("second-guess and fact-check itself before the output"):
+    // the model reviews its own draft against the protocol, re-verifies weak
+    // claims (searching again if needed), and emits the corrected final brief.
+    if (cfg.selfCritique && draft) {
+      const critiqued = await runTurn(messages.concat([
+        { role: "assistant", content: draft },
+        { role: "user", content:
+          "Before this goes to the candidate, review your own draft against your operating protocol: " +
+          "(1) confirm every claim labeled VERIFIED actually rests on a cited source — search again if unsure; " +
+          "(2) downgrade anything overstated to INFERRED or SPECULATIVE; " +
+          "(3) check for stale or outdated facts given today's date; " +
+          "(4) strengthen the devil's-advocate section if it is soft; " +
+          "(5) fix any errors. " +
+          "Then output ONLY the corrected final brief in the same Markdown format — no meta-commentary about the review." },
+      ]));
+      const finalText = extractText(critiqued);
+      if (finalText) {
+        message = critiqued;
+        // Merge sources from both passes, deduped by URL.
+        const seen = new Set(sources.map(s => s.url));
+        for (const s of extractSources(critiqued)) {
+          if (!seen.has(s.url)) { seen.add(s.url); sources.push(s); }
+        }
+        sources = sources.slice(0, 15);
       }
-    } while (message.stop_reason === "pause_turn" && ++guard < 8);
+    }
 
     return {
       text: extractText(message),
       model: message.model,
-      sources: extractSources(message),
+      sources,
       stopReason: message.stop_reason,
     };
   }
@@ -353,7 +415,7 @@ How to answer:
   }
 
   globalThis.CRMAI = {
-    MODELS, DEFAULT_MODEL, DEFAULT_PROTOCOL, WEB_SEARCH_TOOL,
+    MODELS, DEFAULT_MODEL, DEFAULT_PROTOCOL, DEFAULT_KNOWLEDGE, WEB_SEARCH_TOOL,
     getConfig, saveConfig, isConfigured, buildSystem,
     callMessages, testConnection, extractText, generateBrief, chatStrategy,
   };

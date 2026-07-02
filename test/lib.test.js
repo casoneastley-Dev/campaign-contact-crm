@@ -7,7 +7,7 @@ const {
   TAGS, DONATION_STATUSES, ENDORSEMENT_STATUSES, CSV_COLUMNS,
   DEFAULT_CONTRIBUTION_LIMIT,
   displayName, subLine, statusLabel, escapeHtml,
-  telHref, waHref, tgHref, webHref,
+  telHref, waHref, tgHref, webHref, socialHref,
   normalizeContact, csvCell, contactsToCsv,
   donationTotal, formatMoney, lastInteractionDate, followUpStatus,
   findDuplicates, campaignStats,
@@ -155,6 +155,23 @@ describe("channel hrefs", () => {
     assert.equal(webHref("http://example.org"), "http://example.org");
     assert.equal(webHref("javascript:alert(1)"), null);
     assert.equal(webHref(""), null);
+  });
+
+  test("socialHref builds profile URLs from handles and passes URLs through", () => {
+    assert.equal(socialHref("twitter", "@maria_lopez"), "https://x.com/maria_lopez");
+    assert.equal(socialHref("instagram", "maria.lopez"), "https://instagram.com/maria.lopez");
+    assert.equal(socialHref("tiktok", "@maria"), "https://tiktok.com/@maria");
+    assert.equal(socialHref("linkedin", "https://linkedin.com/in/maria-lopez"), "https://linkedin.com/in/maria-lopez");
+    assert.equal(socialHref("twitter", "not a handle!"), null);
+    assert.equal(socialHref("myspace", "maria"), null); // unknown platform
+    assert.equal(socialHref("twitter", ""), null);
+  });
+
+  test("social fields normalize as strings and survive round-trip", () => {
+    const c = normalizeContact({ firstName: "A", twitter: " @handle ", instagram: 42 });
+    assert.equal(c.twitter, "@handle");
+    assert.equal(c.instagram, "");
+    assert.ok(CSV_COLUMNS.includes("twitter") && CSV_COLUMNS.includes("tiktok"));
   });
 });
 

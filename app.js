@@ -8,10 +8,10 @@
     SCHEMA_VERSION, TAGS, TAG_LABELS, DONATION_STATUSES, ENDORSEMENT_STATUSES,
     PRIORITIES, INTERACTION_TYPES, DEFAULT_CONTRIBUTION_LIMIT,
     STRING_FIELDS, displayName, subLine, statusLabel, escapeHtml,
-    telHref, waHref, tgHref, webHref, makeId, normalizeContact,
+    telHref, waHref, tgHref, webHref, socialHref, makeId, normalizeContact,
     donationTotal, formatMoney, lastInteractionDate, followUpStatus,
     findDuplicates, campaignStats, contactsToCsv,
-    connectionsOf, suggestedConnections,
+    connectionsOf, suggestedConnections, bestPath,
   } = globalThis.CRMLib;
 
   const AI = globalThis.CRMAI;
@@ -28,8 +28,8 @@
     { id:"sample-004", firstName:"Priya", lastName:"Raman", organization:"Riverside Chamber of Commerce", role:"President", email:"praman@example.com", phone:"555-010-3344", website:"riversidechamber.example.com", whatsapp:"", telegram:"", street:"200 Commerce Plaza", city:"Riverside", state:"CA", postalCode:"92502", country:"USA", notes:"Invited candidate to speak at the quarterly business breakfast. Wants to hear small-business platform first.", tags:["business-networking"], donationStatus:"asked", endorsementStatus:"potential", priority:"high", followUpDate:"2026-06-11", interactions:[{id:"i-004a",type:"call",date:"2026-05-30",note:"Discussed breakfast agenda. Decide on speaking slot by June 11."}], donations:[], createdAt:"2026-02-20T17:00:00.000Z", updatedAt:"2026-05-30T15:30:00.000Z" },
     { id:"sample-005", firstName:"Ray", lastName:"Whitfield", organization:"Ironworkers Local 229", role:"President", email:"rwhitfield@example.org", phone:"555-010-9090", website:"local229.example.org", whatsapp:"", telegram:"", street:"75 Foundry Rd", city:"Riverside", state:"CA", postalCode:"92503", country:"USA", notes:"Endorsed in April. Local can provide volunteers for the GOTV weekend and a quote for mailers.", tags:["endorser","political-networking"], donationStatus:"donated", endorsementStatus:"endorsed", priority:"normal", followUpDate:"2026-08-01", interactions:[{id:"i-005a",type:"event",date:"2026-04-18",note:"Endorsement announcement at the union hall. Great turnout."},{id:"i-005b",type:"call",date:"2026-03-22",note:"Walked through the labor platform ahead of the executive board vote."}], donations:[{id:"d-005a",amount:1000,date:"2026-04-20",note:"PAC contribution after endorsement"}], connections:["sample-003"], createdAt:"2026-03-01T14:00:00.000Z", updatedAt:"2026-04-20T13:10:00.000Z" },
     { id:"sample-006", firstName:"Hannah", lastName:"Beck", organization:"Riverside Teachers Association", role:"Political director", email:"hbeck@example.org", phone:"555-010-6262", website:"", whatsapp:"", telegram:"@hannahbeck", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Endorsement questionnaire submitted 5/20. Interview scheduled for late June. Education plan is the deciding issue.", tags:["potential-endorsement","political-networking"], donationStatus:"none", endorsementStatus:"asked", priority:"normal", followUpDate:"2026-06-24", interactions:[{id:"i-006a",type:"email",date:"2026-05-20",note:"Submitted questionnaire. Interview tentatively June 24."}], donations:[], createdAt:"2026-03-15T16:45:00.000Z", updatedAt:"2026-05-20T18:00:00.000Z" },
-    { id:"sample-007", firstName:"Marcus", lastName:"Okafor", organization:"", role:"Canvassing team lead", email:"marcus.okafor@example.com", phone:"555-010-8123", website:"", whatsapp:"+1 555 010 8123", telegram:"", street:"19 Elm Ct", city:"Riverside", state:"CA", postalCode:"92504", country:"USA", notes:"Star volunteer — led 14 canvass shifts. Available weekends. Also donates monthly at a small-dollar level.", tags:["volunteer","donor"], donationStatus:"recurring", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-007a",type:"event",date:"2026-06-07",note:"Led Saturday canvass — 212 doors knocked."},{id:"i-007b",type:"text",date:"2026-05-31",note:"Confirmed weekend availability through June."}], donations:[{id:"d-007a",amount:25,date:"2026-04-15",note:"Monthly"},{id:"d-007b",amount:25,date:"2026-05-15",note:"Monthly"},{id:"d-007c",amount:25,date:"2026-06-05",note:"Monthly"}], createdAt:"2026-02-08T19:30:00.000Z", updatedAt:"2026-06-07T21:00:00.000Z" },
-    { id:"sample-008", firstName:"Elena", lastName:"Vasquez", organization:"Riverside Tribune", role:"Political reporter", email:"evasquez@example.com", phone:"555-010-5577", website:"tribune.example.com", whatsapp:"", telegram:"@evasquez_trib", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Covers the city council race. Fair coverage so far. Deadline is 4pm for next-day print. Route press releases through Devon.", tags:["media"], donationStatus:"none", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-008a",type:"call",date:"2026-05-30",note:"Background interview on housing policy piece running next week."}], donations:[], createdAt:"2026-01-28T22:10:00.000Z", updatedAt:"2026-05-30T20:25:00.000Z" },
+    { id:"sample-007", firstName:"Marcus", lastName:"Okafor", organization:"", role:"Canvassing team lead", email:"marcus.okafor@example.com", phone:"555-010-8123", website:"", whatsapp:"+1 555 010 8123", telegram:"", instagram:"@marcusokafor_fl", street:"19 Elm Ct", city:"Riverside", state:"CA", postalCode:"92504", country:"USA", notes:"Star volunteer — led 14 canvass shifts. Available weekends. Also donates monthly at a small-dollar level.", tags:["volunteer","donor"], donationStatus:"recurring", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-007a",type:"event",date:"2026-06-07",note:"Led Saturday canvass — 212 doors knocked."},{id:"i-007b",type:"text",date:"2026-05-31",note:"Confirmed weekend availability through June."}], donations:[{id:"d-007a",amount:25,date:"2026-04-15",note:"Monthly"},{id:"d-007b",amount:25,date:"2026-05-15",note:"Monthly"},{id:"d-007c",amount:25,date:"2026-06-05",note:"Monthly"}], createdAt:"2026-02-08T19:30:00.000Z", updatedAt:"2026-06-07T21:00:00.000Z" },
+    { id:"sample-008", firstName:"Elena", lastName:"Vasquez", organization:"Riverside Tribune", role:"Political reporter", email:"evasquez@example.com", phone:"555-010-5577", website:"tribune.example.com", whatsapp:"", telegram:"@evasquez_trib", twitter:"@evasquez_trib", street:"", city:"Riverside", state:"CA", postalCode:"", country:"USA", notes:"Covers the city council race. Fair coverage so far. Deadline is 4pm for next-day print. Route press releases through Devon.", tags:["media"], donationStatus:"none", endorsementStatus:"none", priority:"normal", followUpDate:"", interactions:[{id:"i-008a",type:"call",date:"2026-05-30",note:"Background interview on housing policy piece running next week."}], donations:[], createdAt:"2026-01-28T22:10:00.000Z", updatedAt:"2026-05-30T20:25:00.000Z" },
     { id:"sample-009", firstName:"Jordan", lastName:"Pike", organization:"Pike Digital Strategies", role:"Principal consultant", email:"jordan@example.com", phone:"555-010-2244", website:"pikedigital.example.com", whatsapp:"", telegram:"", street:"501 Startup Way, Floor 3", city:"Los Angeles", state:"CA", postalCode:"90014", country:"USA", notes:"Retained for digital ads and email program through election day. Invoices monthly, net-15.", tags:["consultant","vendor"], donationStatus:"none", endorsementStatus:"none", priority:"low", followUpDate:"", interactions:[{id:"i-009a",type:"meeting",date:"2026-06-02",note:"Monthly review: email list +1,800; ads CTR holding at 1.4%."}], donations:[], createdAt:"2026-02-14T15:00:00.000Z", updatedAt:"2026-06-02T10:40:00.000Z" },
     { id:"sample-010", firstName:"", lastName:"", organization:"Sunrise Print & Sign Co.", role:"Yard signs and literature vendor", email:"orders@example.com", phone:"555-010-1199", website:"sunriseprint.example.com", whatsapp:"", telegram:"", street:"940 Industrial Pkwy", city:"Riverside", state:"CA", postalCode:"92505", country:"USA", notes:"Union print shop (union bug available). 10-day turnaround on yard signs; ask for the campaign rate.", tags:["vendor"], donationStatus:"none", endorsementStatus:"none", priority:"low", followUpDate:"", interactions:[], donations:[], createdAt:"2026-03-22T17:20:00.000Z", updatedAt:"2026-03-22T17:20:00.000Z" },
     { id:"sample-011", firstName:"Walt", lastName:"Brennan", organization:"", role:"Retired council member", email:"wbrennan@example.com", phone:"555-010-4040", website:"", whatsapp:"", telegram:"", street:"7 Lakeview Dr", city:"Riverside", state:"CA", postalCode:"92506", country:"USA", notes:"Asked to be removed from all outreach lists after the March mailer. Keep record for compliance; do not call, email, or text.", tags:["do-not-contact","political-networking"], donationStatus:"declined", endorsementStatus:"declined", priority:"low", followUpDate:"", interactions:[{id:"i-011a",type:"other",date:"2026-03-29",note:"Opt-out request received and processed. No further contact."}], donations:[], createdAt:"2026-01-19T16:00:00.000Z", updatedAt:"2026-03-29T14:50:00.000Z" },
@@ -314,6 +314,11 @@
     if (c.website) add("🌐", c.website, webHref(c.website));
     if (c.whatsapp) add("💬", `WhatsApp: ${c.whatsapp}`, waHref(c.whatsapp));
     if (c.telegram) add("✈️", `Telegram: ${c.telegram}`, tgHref(c.telegram));
+    if (c.twitter) add("𝕏", c.twitter, socialHref("twitter", c.twitter));
+    if (c.instagram) add("📸", c.instagram, socialHref("instagram", c.instagram));
+    if (c.facebook) add("📘", c.facebook, socialHref("facebook", c.facebook));
+    if (c.linkedin) add("💼", c.linkedin, socialHref("linkedin", c.linkedin));
+    if (c.tiktok) add("🎵", c.tiktok, socialHref("tiktok", c.tiktok));
     return items.join("");
   }
 
@@ -382,6 +387,21 @@
           </div>`;
         }).join("") +
         "</div>";
+    }
+    // Free best-path finder: shortest introduction chain through the link graph.
+    if (linked.length) {
+      const options = contacts
+        .filter(x => x.id !== c.id)
+        .sort((a, b) => displayName(a).localeCompare(displayName(b)))
+        .map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(displayName(x))}</option>`)
+        .join("");
+      body += `<p class="label">Introduction path</p>
+        <div class="path-finder">
+          <select class="path-select" data-from="${escapeHtml(c.id)}" aria-label="Find an introduction path from ${escapeHtml(displayName(c))}">
+            <option value="">Find a path to…</option>${options}
+          </select>
+          <div class="path-result"></div>
+        </div>`;
     }
 
     const summary = history.length ? `Details · ${history.length} activit${history.length === 1 ? "y" : "ies"}` : "Details";
@@ -666,6 +686,7 @@
     settingsForm.elements.apiKey.value = cfg.apiKey;
     settingsForm.elements.model.value = cfg.model;
     settingsForm.elements.webSearch.checked = cfg.webSearch;
+    settingsForm.elements.selfCritique.checked = cfg.selfCritique;
     settingsForm.elements.protocol.value = cfg.protocol;
     settingsForm.elements.knowledge.value = cfg.knowledge;
     $("#ai-test-result").textContent = "";
@@ -679,6 +700,7 @@
       apiKey: settingsForm.elements.apiKey.value,
       model: settingsForm.elements.model.value,
       webSearch: settingsForm.elements.webSearch.checked,
+      selfCritique: settingsForm.elements.selfCritique.checked,
       protocol: settingsForm.elements.protocol.value,
       knowledge: settingsForm.elements.knowledge.value,
     });
@@ -1080,6 +1102,25 @@
       }
     });
 
+    // Best-path finder inside card details (free, no AI).
+    listEl.addEventListener("change", e => {
+      const sel = e.target.closest(".path-select");
+      if (!sel) return;
+      const resultEl = sel.parentElement.querySelector(".path-result");
+      if (!sel.value) { resultEl.innerHTML = ""; return; }
+      const path = bestPath(contacts, sel.dataset.from, sel.value);
+      if (path) {
+        resultEl.innerHTML =
+          `<div class="path-chain">` +
+          path.map((p, i) =>
+            `${i ? '<span class="path-arrow">→</span>' : ""}<span class="connection-chip is-static">${escapeHtml(displayName(p))}</span>`
+          ).join("") +
+          `</div><p class="path-note">${path.length - 2 === 0 ? "Direct connection." : `${path.length - 2} introduction${path.length - 2 === 1 ? "" : "s"} needed.`}</p>`;
+      } else {
+        resultEl.innerHTML = `<p class="path-note">No path yet — link more contacts to build a route.</p>`;
+      }
+    });
+
     form.addEventListener("submit", handleSave);
     $("#btn-cancel").addEventListener("click", () => dialog.close());
     $("#btn-dialog-close").addEventListener("click", () => dialog.close());
@@ -1117,6 +1158,9 @@
     $("#btn-ai-test").addEventListener("click", testAiConnection);
     $("#btn-ai-reset-protocol").addEventListener("click", () => {
       settingsForm.elements.protocol.value = AI.DEFAULT_PROTOCOL;
+    });
+    $("#btn-ai-reset-knowledge").addEventListener("click", () => {
+      settingsForm.elements.knowledge.value = AI.DEFAULT_KNOWLEDGE;
     });
     updateAiStatus();
 

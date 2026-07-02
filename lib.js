@@ -4,7 +4,7 @@
 (() => {
   "use strict";
 
-  const SCHEMA_VERSION = 4;
+  const SCHEMA_VERSION = 5;
 
   const TAGS = [
     { id: "donor",                 label: "Donor" },
@@ -60,6 +60,7 @@
   const STRING_FIELDS = [
     "firstName", "lastName", "organization", "role",
     "email", "phone", "website", "whatsapp", "telegram",
+    "twitter", "instagram", "facebook", "linkedin", "tiktok",
     "street", "city", "state", "postalCode", "country", "notes",
   ];
 
@@ -111,6 +112,25 @@
     if (/^https?:\/\//i.test(u)) return u;
     if (/^[\w-]+(\.[\w-]+)+/.test(u)) return `https://${u}`;
     return null;
+  }
+
+  const SOCIAL_BASES = {
+    twitter: "https://x.com/",
+    instagram: "https://instagram.com/",
+    facebook: "https://facebook.com/",
+    linkedin: "https://linkedin.com/in/",
+    tiktok: "https://tiktok.com/@",
+  };
+
+  /** Profile URL from a handle ("@user"), bare username, or full URL. */
+  function socialHref(platform, value) {
+    const v = (value || "").trim();
+    if (!v) return null;
+    if (/^https?:\/\//i.test(v)) return v;
+    const base = SOCIAL_BASES[platform];
+    if (!base) return null;
+    const handle = v.replace(/^@/, "");
+    return /^[\w.-]{1,60}$/.test(handle) ? base + handle : null;
   }
 
   // ---------- Normalization ----------
@@ -347,6 +367,7 @@
   const CSV_COLUMNS = [
     "id", "firstName", "lastName", "organization", "role",
     "email", "phone", "website", "whatsapp", "telegram",
+    "twitter", "instagram", "facebook", "linkedin", "tiktok",
     "street", "city", "state", "postalCode", "country",
     "tags", "donationStatus", "endorsementStatus", "priority", "followUpDate",
     "totalDonated", "donationCount", "lastInteraction", "interactionCount",
@@ -380,7 +401,7 @@
     PRIORITIES, INTERACTION_TYPES, DEFAULT_CONTRIBUTION_LIMIT,
     STRING_FIELDS, CSV_COLUMNS,
     displayName, subLine, statusLabel,
-    escapeHtml, telHref, waHref, tgHref, webHref,
+    escapeHtml, telHref, waHref, tgHref, webHref, socialHref,
     isIsoDate, makeId, normalizeContact, normalizeInteraction, normalizeDonation,
     donationTotal, formatMoney, lastInteractionDate, followUpStatus,
     findDuplicates, campaignStats,
